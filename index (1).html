@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>フラクタル散歩</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: full-screen canvas, HUD pinned to the four corners, thumbs at the bottom */
+  --ink:#f3efe6;
+  --ink-dim:#b9b4c6;
+  --panel:rgba(18,14,34,.62);
+  --line:rgba(243,239,230,.28);
+  --accent:#ffb454;
+  --bg:#0b0916;
+  --font:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);overflow:hidden;
+  touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;image-rendering:auto}
+.hud{position:fixed;display:flex;gap:8px;z-index:2}
+.top-left{top:calc(10px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));flex-direction:column;align-items:flex-start}
+.top-right{top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));flex-direction:column;align-items:flex-end}
+.bottom-left4{bottom:calc(170px + env(safe-area-inset-bottom));left:calc(14px + env(safe-area-inset-left));flex-direction:column;align-items:flex-start}
+.bottom-left4[hidden]{display:none}
+@media (hover:hover) and (pointer:fine){.bottom-left4{bottom:calc(18px + env(safe-area-inset-bottom))}}
+.bottom-right{bottom:calc(18px + env(safe-area-inset-bottom));right:calc(14px + env(safe-area-inset-right));flex-direction:column;align-items:flex-end;gap:10px}
+.row{display:flex;gap:6px}
+.top-left .row{flex-wrap:wrap;max-width:calc(100vw - 150px)}
+.top-left .stat{max-width:calc(100vw - 150px)}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:8px 10px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[aria-pressed="true"]{background:var(--accent);color:#1b1205;border-color:var(--accent)}
+button.b4d{border-color:rgba(120,220,255,.55)}
+button.big{width:68px;height:68px;border-radius:50%;font-size:13px;padding:0}
+button.mid{min-width:52px;height:44px}
+.stat{font-size:12px;color:var(--ink-dim);background:var(--panel);border-radius:8px;padding:5px 9px;font-variant-numeric:tabular-nums}
+.stat b{color:var(--ink)}
+#stick{position:fixed;width:120px;height:120px;border-radius:50%;border:1px solid var(--line);background:rgba(18,14,34,.3);
+  left:calc(26px + env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));z-index:1;pointer-events:none}
+#knob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(243,239,230,.55)}
+#hint{position:fixed;left:50%;bottom:calc(160px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:12.5px;line-height:1.6;
+  max-width:min(88vw,460px);text-align:left;pointer-events:none;transition:opacity .6s}
+#toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top));transform:translateX(-50%);z-index:3;
+  background:var(--accent);color:#1b1205;font-weight:700;font-size:13px;border-radius:8px;padding:7px 12px;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#lockhint{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:2;font-size:11.5px;color:var(--ink-dim);background:var(--panel);border-radius:8px;padding:4px 10px;opacity:0;pointer-events:none;transition:opacity .3s}
+#panel{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));z-index:5;width:min(330px,calc(100vw - 24px));
+  max-height:calc(100% - 24px);overflow:auto;background:rgba(18,14,34,.9);border:1px solid var(--line);border-radius:12px;padding:14px;
+  display:flex;flex-direction:column;gap:6px;font-size:13px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);user-select:none}
+#panel[hidden]{display:none}
+#panel .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+#panel label{display:flex;justify-content:space-between;gap:8px;color:var(--ink)}
+#panel label span{color:var(--accent);font-variant-numeric:tabular-nums}
+#panel label.opt{justify-content:flex-start;align-items:center;gap:8px;color:var(--ink-dim)}
+#panel input[type=range]{width:100%;accent-color:var(--accent);margin:0 0 6px;touch-action:auto}
+#panel fieldset{border:1px solid var(--line);border-radius:8px;padding:6px 10px 8px;margin:2px 0 6px;display:flex;flex-direction:column;gap:4px}
+#panel legend{padding:0 4px;color:var(--ink)}
+#panel input[type=radio],#panel input[type=checkbox]{accent-color:var(--accent)}
+#panel .pnote{margin:4px 0 0;font-size:11.5px;color:var(--ink-dim);line-height:1.5}
+#showui{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));z-index:4;opacity:.28;font-size:12px;padding:7px 10px}
+#showui:hover,#showui:focus-visible{opacity:.9}
+#showui[hidden]{display:none}
+body.noui .hud,body.noui #stick,body.noui #hint,body.noui #lockhint,body.noui #toast{display:none!important}
+#err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:9;background:var(--bg)}
+@media (hover:hover) and (pointer:fine){#stick{display:none}}
+@media (prefers-reduced-motion:reduce){#hint,#toast{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div class="hud top-left">
+  <div class="row" role="group" aria-label="ワールド">
+    <button id="w0" aria-pressed="true">回廊</button>
+    <button id="w1" aria-pressed="false">箱</button>
+    <button id="w2" aria-pressed="false">聖堂</button>
+    <button id="w3" aria-pressed="false">機巧</button>
+    <button id="w4" aria-pressed="false">虹</button>
+    <button id="w5" aria-pressed="false">結晶</button>
+    <button id="w6" aria-pressed="false">骨</button>
+    <button id="w7" aria-pressed="false">万華鏡</button>
+    <button id="w8" aria-pressed="false">三角</button>
+    <button id="w9" aria-pressed="false">貝殻</button>
+    <button id="w10" aria-pressed="false">花</button>
+    <button id="w11" aria-pressed="false">岩</button>
+    <button id="w12" aria-pressed="false" class="b4d">超立方体</button>
+    <button id="w13" aria-pressed="false" class="b4d">4D箱</button>
+    <button id="w14" aria-pressed="false" class="b4d">四元数</button>
+    <button id="w15" aria-pressed="false">クレーター</button>
+  </div>
+  <div class="stat" id="wname">メンガー回廊</div>
+</div>
+
+<div class="hud top-right">
+  <div class="stat">体の大きさ <b id="sz">×1</b></div>
+  <div class="row">
+    <button class="mid" id="smaller" aria-label="小さくなる">縮む</button>
+    <button class="mid" id="bigger" aria-label="大きくなる">育つ</button>
+  </div>
+  <div class="row">
+    <button class="mid" id="hideui" aria-label="画面のボタンや表示を隠す">UIを隠す</button>
+    <button class="mid" id="opt" aria-expanded="false" aria-controls="panel">設定</button>
+  </div>
+</div>
+
+<div class="hud bottom-left4" id="ctl4" hidden>
+  <div class="stat">4次元目の位置 <b id="w4v">0</b></div>
+  <div class="row">
+    <button class="mid hold" id="w4m" aria-label="4次元目のマイナス方向へ移動">4D −</button>
+    <button class="mid hold" id="w4p" aria-label="4次元目のプラス方向へ移動">4D ＋</button>
+  </div>
+  <div class="row">
+    <button class="mid hold" id="r4m" aria-label="4次元の方向へ左に回転">⟲ 4D回転</button>
+    <button class="mid hold" id="r4p" aria-label="4次元の方向へ右に回転">4D回転 ⟳</button>
+  </div>
+</div>
+
+<div class="hud bottom-right">
+  <button class="mid" id="auto" aria-pressed="true">自動サイズ</button>
+  <button class="mid" id="fly" aria-pressed="false">飛行</button>
+  <button class="big" id="jump">ジャンプ</button>
+</div>
+
+<div id="stick"><div id="knob"></div></div>
+<div id="hint"></div>
+<div id="toast"></div>
+<div id="panel" role="dialog" aria-label="設定" hidden>
+  <div class="ph"><b>設定</b><button id="optclose" aria-label="設定を閉じる">閉じる</button></div>
+  <label for="sGrav">重力の強さ <span id="vGrav"></span></label>
+  <input type="range" id="sGrav" min="0.1" max="3" step="0.1">
+  <label for="sJump">ジャンプの高さ <span id="vJump"></span></label>
+  <input type="range" id="sJump" min="0.3" max="4" step="0.1">
+  <label for="sFall">落ち続けたら飛行に切り替える <span id="vFall"></span></label>
+  <input type="range" id="sFall" min="0" max="10" step="0.5">
+  <fieldset>
+    <legend>視点の上下の限度（酔い軽減）</legend>
+    <label class="opt"><input type="radio" name="sLook" value="walk" id="sLook1"> 重力があるときだけ（標準）</label>
+    <label class="opt"><input type="radio" name="sLook" value="always" id="sLook2"> 飛行中も常に（酔いにくい）</label>
+    <label class="opt"><input type="radio" name="sLook" value="never" id="sLook3"> 限度なし（完全に自由）</label>
+  </fieldset>
+  <label for="sSens">視点の感度 <span id="vSens"></span></label>
+  <input type="range" id="sSens" min="0.3" max="3" step="0.1">
+  <label class="opt"><input type="checkbox" id="sEdge"> 画面の端にカーソルを置くと回り続ける</label>
+  <button id="sReset">初期設定に戻す</button>
+  <p class="pnote">O キーでも開閉できます。設定はこのブラウザに保存されます。</p>
+</div>
+<button id="showui" hidden aria-label="UIを表示する">UIを表示</button>
+<div id="lockhint">カーソル固定中 ・ Escで解除</div>
+<div id="err">この端末ではWebGLが使えないため、表示できません。別のブラウザで開いてみてください。</div>
+
+<script id="fs" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 uRes;
+uniform vec3 uPos;
+uniform mat3 uRot;
+uniform int uWorld;
+uniform float uScale;
+uniform float uFar;
+uniform int uIter;
+uniform vec3 uP;
+uniform mat3 uG;
+uniform vec3 uC;
+uniform mat3 uG0;
+uniform float uInvS;
+uniform int uTile;
+uniform int uKind;
+uniform int uRule;
+uniform float uBS;
+uniform float uTileP;
+uniform float uDr0;
+uniform float uCr;
+uniform vec3 uR[14];
+uniform vec3 uH[14];
+uniform vec3 uL[14];
+uniform vec3 uSg[14];
+uniform float uMs[14];
+uniform vec3 uAf;
+uniform float uMc;
+uniform vec4 uP4;
+uniform mat4 uM4;
+uniform float uS4;
+uniform int uK4;
+uniform int uN;
+uniform vec3 uA[8];
+uniform float uS[8];
+uniform float uT[8];
+float trap;
+
+float deMenger(vec3 q){
+  float d=-1e5; trap=0.0;
+  for(int m=0;m<8;m++){
+    if(m>=uN) break;
+    vec3 a=mod(uA[m]+q*uS[m],2.0)-1.0;
+    float c;
+    if(uRule==1){
+      vec3 e=max(1.0-abs(a)-0.3333333,0.0); vec3 q2=e*e;
+      c=sqrt(max(q2.x+q2.y+q2.z-max(q2.x,max(q2.y,q2.z)),0.0))/uS[m];
+    }else{
+      vec3 r=abs(1.0-3.0*abs(a));
+      c=(min(max(r.x,r.y),min(max(r.y,r.z),max(r.z,r.x)))-1.0)/(3.0*uS[m]);
+    }
+    if(c>d){d=c;trap=uT[m];}
+  }
+  return d;
+}
+float deBox(vec3 q){
+  vec3 z=uP+uG*q; vec3 c=uC+uG0*q;
+  if(uTile==1){vec3 n=floor(z/uTileP+0.5)*uTileP; z-=n; c-=n;}
+  float dr=uDr0; trap=1e9;
+  for(int i=0;i<20;i++){
+    if(i>=uIter) break;
+    z=clamp(z,-1.0,1.0)*2.0-z;
+    float r2=dot(z,z);
+    trap=min(trap,r2);
+    if(r2<0.25){z*=4.0;dr*=4.0;}
+    else if(r2<1.0){z/=r2;dr/=r2;}
+    z=z*uBS+c; dr=dr*abs(uBS)+uCr;
+  }
+  return length(z)/dr*uInvS;
+}
+float deApo(vec3 q){
+  vec3 d=uG*q; float sc=1.0; trap=1e9;
+  for(int i=0;i<14;i++){
+    if(i>=uIter) break;
+    vec3 r=uR[i];
+    vec3 th=d-uH[i], tl=-d-uL[i];
+    d-=2.0*(step(0.0,th)*(floor(th*0.5)+1.0)-step(0.0,tl)*(floor(tl*0.5)+1.0));
+    vec3 p=r+d;
+    float r2p=dot(p,p), r2r=dot(r,r), kp=APOS/r2p;
+    d=d*kp-r*(APOS*(2.0*dot(r,d)+dot(d,d))/(r2p*r2r));
+    sc*=kp; trap=min(trap,r2p);
+  }
+  return 0.25*abs(uAf.y+d.y)/sc*uInvS;
+}
+float dePK(vec3 q){
+  vec3 d=uG*q; vec3 C=vec3(1.0,1.0,1.3); float sc=1.0; trap=1e9;
+  for(int i=0;i<14;i++){
+    if(i>=uIter) break;
+    vec3 r=uR[i], H=uH[i], L=uL[i];
+    vec3 e=uSg[i]*d;
+    vec3 th=e-H, tl=-e-L;
+    vec3 dn=mix(e,H-th,step(0.0,th));
+    dn=mix(dn,tl-L,step(0.0,tl));
+    vec3 gen=(C-abs(mod(r+e+C,4.0*C)-2.0*C))-r;
+    d=mix(dn,gen,step(2.0*C,max(th,tl)));
+    float rd2=2.0*dot(r,d)+dot(d,d);
+    float r2r=dot(r,r), r2p=r2r+rd2;
+    float mr=uMs[i], mp=mr+rd2;
+    float kp=(mp<0.0)?1.2/r2p:1.0;
+    float dk;
+    if(mr<0.0) dk=(mp<0.0)?(-1.2*rd2/(r2p*r2r)):(mr/r2r);
+    else dk=(mp<0.0)?(-mp/r2p):0.0;
+    d=d*kp+r*dk;
+    sc*=kp; trap=min(trap,r2p);
+  }
+  vec3 p=uAf+d;
+  float ra=length(uAf.xy), rxy=length(p.xy);
+  float dc=uMc+(2.0*dot(uAf.xy,d.xy)+dot(d.xy,d.xy))/(rxy+ra);
+  return 0.6*max(dc,abs(rxy*p.z)/length(p))/sc*uInvS;
+}
+uniform mat3 uKR;
+uniform float uKS;
+uniform vec3 uKO;
+float deKifs(vec3 q){
+  vec3 p=uP+uG*q;
+  if(uTile==1) p-=floor(p/uTileP+0.5)*uTileP;
+  float sc=1.0; trap=1e9;
+  for(int i=0;i<28;i++){
+    if(i>=uIter) break;
+    if(uRule==1){
+      if(p.x+p.y<0.0) p.xy=-p.yx;
+      if(p.x+p.z<0.0) p.xz=-p.zx;
+      if(p.y+p.z<0.0) p.yz=-p.zy;
+    }else{
+      p=abs(p);
+      if(uRule==0){
+        if(p.x<p.y) p.xy=p.yx;
+        if(p.x<p.z) p.xz=p.zx;
+        if(p.y<p.z) p.yz=p.zy;
+      }
+    }
+    p=uKR*p;
+    p=p*uKS-uKO*(uKS-1.0); sc*=uKS;
+    trap=min(trap,dot(p,p));
+  }
+  return (length(p)-1.0)/sc*uInvS;
+}
+// 4D worlds: the screen shows a 3D slice of a 4D fractal. The slice is placed by the
+// player's 4D position uP4 and orientation uM4 (its 4th column is the hidden direction).
+float de4(vec3 q){
+  vec4 p=uP4+uS4*(uM4*vec4(q,0.0));
+  trap=1e9;
+  if(uK4==0){
+    p-=2.0*floor(p*0.5+0.5);
+    float s=1.0;
+    for(int i=0;i<16;i++){
+      if(i>=uIter) break;
+      p=abs(p);
+      if(p.x<p.y) p.xy=p.yx;
+      if(p.x<p.z) p.xz=p.zx;
+      if(p.x<p.w) p.xw=p.wx;
+      if(p.y<p.z) p.yz=p.zy;
+      if(p.y<p.w) p.yw=p.wy;
+      if(p.z<p.w) p.zw=p.wz;
+      p.xy=3.0*p.xy-2.0; p.zw=3.0*p.zw;
+      if(p.z>1.0) p.z-=2.0;
+      if(p.w>1.0) p.w-=2.0;
+      s*=3.0; trap=min(trap,dot(p,p));
+    }
+    vec4 d=abs(p)-1.0;
+    return (length(max(d,0.0))+min(max(max(d.x,d.y),max(d.z,d.w)),0.0))/s/uS4;
+  }
+  if(uK4==1){
+    p-=10.0*floor(p*0.1+0.5);
+    vec4 z=p; float dr=1.0;
+    for(int i=0;i<20;i++){
+      if(i>=uIter) break;
+      z=clamp(z,-1.0,1.0)*2.0-z;
+      float r2=dot(z,z);
+      trap=min(trap,r2);
+      if(r2<0.25){z*=4.0;dr*=4.0;}
+      else if(r2<1.0){z/=r2;dr/=r2;}
+      z=z*2.2+p; dr=dr*2.2+1.0;
+    }
+    return length(z)/dr/uS4;
+  }
+  p.xyz-=4.0*floor(p.xyz*0.25+0.5);
+  vec4 c=vec4(-0.2,0.6,0.2,0.2);
+  float m=dot(p,p), dz=1.0;
+  for(int i=0;i<20;i++){
+    if(i>=uIter) break;
+    dz=2.0*sqrt(m)*dz;
+    p=vec4(p.x*p.x-dot(p.yzw,p.yzw),2.0*p.x*p.yzw)+c;
+    m=dot(p,p); trap=min(trap,m);
+    if(m>256.0) break;
+  }
+  float r=sqrt(m);
+  return 0.5*r*log(r)/dz/uS4;
+}
+// crater valley: ground below y=0.3 with a square lattice of bowl craters. Each step either
+// inverts a bowl (lining its wall with a new cratered ground) or zooms the flat ground x3,
+// so craters of every size cover everything.
+float deCrater(vec3 q){
+  vec3 p=uP+uG*q;
+  float sc=1.0; trap=1.0;
+  for(int i=0;i<24;i++){
+    if(i>=uIter) break;
+    p.xz-=2.0*floor(p.xz*0.5+0.5);
+    float r2=dot(p,p);
+    if(r2<0.9025){float k=0.9025/r2; p*=k; sc*=k; trap=min(trap,r2/0.9025);}
+    else{p.xz*=3.0; p.y=(p.y-0.3)*3.0+0.3; sc*=3.0;}
+  }
+  return 0.5*(p.y-0.3)/sc*uInvS;
+}
+float de(vec3 p){
+  if(uKind==0) return deMenger(p);
+  if(uKind==1) return deBox(p);
+  if(uKind==2) return deApo(p);
+  if(uKind==3) return dePK(p);
+  if(uKind==5) return de4(p);
+  if(uKind==6) return deCrater(p);
+  return deKifs(p);
+}
+vec3 nrm(vec3 p,float e){
+  vec2 k=vec2(1.0,-1.0);
+  return normalize(k.xyy*de(p+k.xyy*e)+k.yyx*de(p+k.yyx*e)+k.yxy*de(p+k.yxy*e)+k.xxx*de(p+k.xxx*e));
+}
+vec3 pal(float t,vec3 a,vec3 b,vec3 c,vec3 d){return a+b*cos(6.28318*(c*t+d));}
+vec3 sky(vec3 rd){
+  float h=clamp(rd.y*0.5+0.5,0.0,1.0);
+  if(uWorld==0) return mix(vec3(0.98,0.62,0.36),vec3(0.13,0.12,0.34),pow(h,0.55)*1.0)+vec3(0.35,0.2,0.05)*pow(1.0-abs(rd.y),8.0);
+  if(uWorld==1) return mix(vec3(0.80,0.90,0.93),vec3(0.20,0.42,0.62),pow(h,0.8));
+  if(uWorld==2) return mix(vec3(0.10,0.05,0.16),vec3(0.02,0.02,0.07),h);
+  if(uWorld==3) return mix(vec3(0.07,0.11,0.13),vec3(0.02,0.04,0.07),h);
+  if(uWorld==4) return mix(vec3(0.015,0.03,0.08),vec3(0.0,0.005,0.03),h);
+  if(uWorld==5) return mix(vec3(0.42,0.62,0.74),vec3(0.03,0.08,0.22),pow(h,0.7));
+  if(uWorld==6) return mix(vec3(0.20,0.12,0.08),vec3(0.03,0.02,0.03),h);
+  if(uWorld==7) return mix(vec3(0.16,0.06,0.20),vec3(0.02,0.01,0.06),h);
+  if(uWorld==8) return mix(vec3(0.96,0.80,0.62),vec3(0.30,0.46,0.72),pow(h,0.6));
+  if(uWorld==9) return mix(vec3(0.05,0.22,0.26),vec3(0.01,0.04,0.10),h);
+  if(uWorld==10) return mix(vec3(0.34,0.22,0.42),vec3(0.05,0.03,0.12),pow(h,0.7));
+  if(uWorld==12) return mix(vec3(0.92,0.94,0.98),vec3(0.55,0.62,0.78),pow(h,0.8));
+  if(uWorld==13) return mix(vec3(0.10,0.02,0.06),vec3(0.01,0.0,0.02),h);
+  if(uWorld==14) return mix(vec3(0.02,0.10,0.08),vec3(0.0,0.02,0.03),h);
+  if(uWorld==15) return mix(vec3(0.86,0.76,0.62),vec3(0.42,0.36,0.40),pow(h,0.8));
+  return mix(vec3(0.05,0.05,0.07),vec3(0.0,0.0,0.015),h);
+}
+void main(){
+  vec2 uv=(gl_FragCoord.xy*2.0-uRes)/uRes.y;
+  vec3 rd=uRot*normalize(vec3(uv,-1.35));
+  float px=1.2/uRes.y;
+  float t=0.0, st=0.0, tr=0.0; bool hit=false;
+  float k=(uKind==1)?0.85:((uKind==4)?0.9:1.0);
+  for(int i=0;i<170;i++){
+    float d=de(uPos+rd*t);
+    if(d<px*t+max(2e-5*uScale,2e-6)){hit=true;tr=trap;break;}
+    t+=d*k; st+=1.0;
+    if(t>uFar) break;
+  }
+  if(!hit&&t<uFar){hit=true;tr=trap;}
+  vec3 bg=sky(rd);
+  vec3 col=bg;
+  if(hit){
+    vec3 p=uPos+rd*t;
+    float e=max(px*t*0.6,max(2e-5*uScale,2e-6));
+    vec3 n=nrm(p,e);
+    float h=max(px*t*5.0,0.012*uScale);
+    float ao=0.0;
+    for(int i=1;i<=3;i++){float hh=h*float(i); ao+=clamp(de(p+n*hh)/hh,0.0,1.0);}
+    ao=0.25+0.75*ao/3.0;
+    ao*=1.0-0.45*st/170.0;
+    vec3 base;
+    if(uWorld==0){
+      base=pal(tr/6.0+0.05,vec3(0.56,0.50,0.48),vec3(0.36,0.30,0.30),vec3(1.0),vec3(0.02,0.12,0.26));
+    }else if(uWorld==1){
+      base=pal(sqrt(tr)*0.9,vec3(0.55,0.56,0.55),vec3(0.40,0.36,0.34),vec3(1.0,0.9,0.8),vec3(0.55,0.42,0.30));
+    }else if(uWorld==2){
+      base=pal(tr*1.3,vec3(0.50,0.42,0.52),vec3(0.45,0.40,0.42),vec3(1.0,1.0,0.8),vec3(0.80,0.95,0.15));
+    }else if(uWorld==3){
+      float w=smoothstep(0.15,0.95,sqrt(tr));
+      base=mix(vec3(0.10,0.20,0.78),vec3(0.80,0.88,0.86),w);
+      base=mix(base,vec3(0.16,0.42,0.30),0.35*smoothstep(0.0,0.12,0.12-sqrt(tr)));
+    }else if(uWorld==4){
+      vec3 rb=0.5+0.5*cos(6.28318*(tr*5.0+vec3(0.0,0.33,0.67)));
+      float band=smoothstep(0.30,0.55,abs(fract(tr*2.5)-0.5)*2.0);
+      base=mix(vec3(0.05,0.09,0.22),rb*1.25,band);
+    }else if(uWorld==5){
+      base=pal(tr/6.0,vec3(0.74,0.86,0.94),vec3(0.20,0.14,0.08),vec3(1.0),vec3(0.55,0.60,0.70));
+    }else if(uWorld==6){
+      base=mix(vec3(0.88,0.82,0.68),vec3(0.70,0.30,0.12),smoothstep(0.15,1.0,sqrt(tr)));
+    }else if(uWorld==7){
+      base=pal(sqrt(tr)*0.33,vec3(0.56,0.42,0.50),vec3(0.44,0.40,0.40),vec3(1.0,0.8,0.9),vec3(0.92,0.20,0.55));
+    }else if(uWorld==8){
+      base=pal(sqrt(tr)*0.22,vec3(0.78,0.62,0.44),vec3(0.18,0.16,0.14),vec3(1.0),vec3(0.05,0.10,0.20));
+    }else if(uWorld==9){
+      base=pal(sqrt(tr)*0.45,vec3(0.72,0.74,0.76),vec3(0.26,0.22,0.24),vec3(1.0,1.0,1.0),vec3(0.95,0.30,0.60));
+    }else if(uWorld==10){
+      base=pal(sqrt(tr)*0.30,vec3(0.62,0.44,0.46),vec3(0.38,0.34,0.30),vec3(1.0,0.9,0.7),vec3(0.88,0.12,0.40));
+    }else if(uWorld==11){
+      base=mix(vec3(0.34,0.31,0.29),vec3(0.62,0.52,0.42),smoothstep(0.2,1.6,sqrt(tr)));
+    }else if(uWorld==12){
+      vec3 q4=uP4.xyz+uS4*(uM4*vec4(p,0.0)).xyz;
+      base=pal(fract(dot(floor(q4*1.5),vec3(0.13,0.21,0.17)))*0.6+sqrt(tr)*0.05,vec3(0.80,0.80,0.84),vec3(0.16,0.14,0.18),vec3(1.0),vec3(0.60,0.66,0.76));
+    }else if(uWorld==13){
+      base=pal(sqrt(tr)*0.5,vec3(0.62,0.36,0.36),vec3(0.38,0.30,0.30),vec3(1.0,0.8,0.7),vec3(0.0,0.15,0.30));
+    }else if(uWorld==15){
+      base=mix(vec3(0.42,0.28,0.34),vec3(0.95,0.86,0.64),smoothstep(0.35,0.98,tr));
+    }else{
+      base=pal(log(1.0+tr)*0.35,vec3(0.40,0.62,0.56),vec3(0.36,0.32,0.36),vec3(1.0,1.0,1.0),vec3(0.20,0.55,0.85));
+    }
+    vec3 L=normalize(vec3(0.45,0.75,0.35));
+    float dif=clamp(dot(n,L),0.0,1.0);
+    float up=0.5+0.5*n.y;
+    float head=clamp(dot(n,-rd),0.0,1.0)/(1.0+t*t*4.0/(uFar*uFar)*9.0);
+    vec3 lit=base*(sky(vec3(0.0,1.0,0.0))*0.55*up+vec3(1.0,0.9,0.78)*dif*0.85+vec3(0.9,0.85,0.8)*head*0.55+0.08);
+    col=lit*ao;
+    if(uWorld==4) col=col*0.75+base*0.22*ao;
+    float f=1.0-exp(-pow(t/uFar*2.3,1.8));
+    col=mix(col,sky(vec3(rd.x,0.02,rd.z)),f);
+  }
+  if(uWorld>=3){
+    float g=st/170.0;
+    col+=((uWorld==4)?vec3(0.20,0.45,1.0):((uWorld==6)?vec3(0.60,0.35,0.15):((uWorld==7)?vec3(0.60,0.25,0.60):vec3(0.30,0.50,0.60))))*g*g*((uWorld==4)?1.1:0.35);
+  }
+  col=pow(col,vec3(0.8));
+  vec2 q=gl_FragCoord.xy/uRes;
+  col*=0.72+0.28*pow(16.0*q.x*q.y*(1.0-q.x)*(1.0-q.y),0.22);
+  gl_FragColor=vec4(col,1.0);
+}
+</script>
+
+<script>
+//DE-START
+const APOS=1.22, R0=0.08;
+let iters=9;
+function mod2(x){return x-2*Math.floor(x*0.5);}
+
+// --- Menger: the world is stored as one phase per level, relative to the player.
+// Moving shifts every phase, shrinking adds a finer level, growing adds a coarser one,
+// so neither position nor scale ever runs out of precision.
+let lv=[],act=[],mZoom=1,mRule=0,mOff=0;
+const M_FAR=70;
+function mExp(i){return i-(lv.length-5)+mOff;}
+function mCoarse(){const f=lv[0];lv.unshift({a:f.a.map(v=>mRule?(v<1?v/3:(v+4)/3):(v+2)/3),id:f.id-1});}
+function mInit(rule){
+  mRule=rule||0;mOff=mRule?-2:0;
+  let a=mRule?[0.5,0.45,0.6]:[0,1.75,1.0];lv=[];mZoom=1;
+  for(let e=0;e<=4;e++){lv.push({a:a.slice(),id:e});a=a.map(v=>mod2(3*v));}
+  while(lv.length<16)mCoarse();
+  mActive();
+  if(mRule)for(let i=0;i<80;i++){   // drift to just outside the lattice
+    const d=deMenger(0,0,0);if(Math.abs(d-0.7)<0.03)break;
+    const e=1e-4,g=[deMenger(e,0,0)-deMenger(-e,0,0),deMenger(0,e,0)-deMenger(0,-e,0),deMenger(0,0,e)-deMenger(0,0,-e)],l=Math.hypot(g[0],g[1],g[2])||1,m=-(d-0.7)*0.8/l;
+    mFold([g[0]*m,g[1]*m,g[2]*m]);mActive();
+  }
+}
+function bandU(a){return a.map(v=>Math.min(v,2-v)).sort((x,y)=>x-y);}
+function holeDist(a){
+  const e=a.map(v=>Math.max(Math.min(v,2-v)-1/3,0)).sort((x,y)=>x-y);
+  return Math.hypot(e[0],e[1]);
+}
+function mActive(){
+  const n=lv.length;act=[];
+  const mk=i=>({a:lv[i].a,s:Math.pow(3,mExp(i))*mZoom,t:((lv[i].id%6)+6)%6});
+  for(let i=n-6;i<n;i++)act.push(mk(i));
+  const cand=[];
+  for(let i=n-7;i>=Math.max(0,n-32);i--){
+    const sc=Math.pow(3,mExp(i))*mZoom;
+    const d=mRule?(1/3-bandU(lv[i].a)[1])/sc:holeDist(lv[i].a)/sc;
+    if(d<M_FAR)cand.push([d,i]);
+  }
+  cand.sort((x,y)=>x[0]-y[0]);
+  for(let k=0;k<Math.min(2,cand.length);k++)act.push(mk(cand[k][1]));
+}
+function mFold(p){
+  for(let i=0;i<lv.length;i++){
+    const s=Math.pow(3,mExp(i))*mZoom,a=lv[i].a;
+    a[0]=mod2(a[0]+p[0]*s);a[1]=mod2(a[1]+p[1]*s);a[2]=mod2(a[2]+p[2]*s);
+  }
+}
+function mShrink(){const l=lv[lv.length-1];lv.push({a:l.a.map(v=>mod2(3*v)),id:l.id+1});mActive();}
+function mGrow(){const p=lv.pop();if(lv.length<16)mCoarse();mActive();return p;}
+function deMenger(x,y,z){
+  let d=-1e5;
+  for(let m=0;m<act.length;m++){
+    const L=act[m],a=L.a,s=L.s;
+    const ax=Math.abs(mod2(a[0]+x*s)-1),ay=Math.abs(mod2(a[1]+y*s)-1),az=Math.abs(mod2(a[2]+z*s)-1);
+    let c;
+    if(mRule){
+      const ex=Math.max(1-ax-1/3,0),ey=Math.max(1-ay-1/3,0),ez=Math.max(1-az-1/3,0),qx=ex*ex,qy=ey*ey,qz=ez*ez;
+      c=Math.sqrt(Math.max(qx+qy+qz-Math.max(qx,qy,qz),0))/s;
+    }else{
+      const rx=Math.abs(1-3*ax),ry=Math.abs(1-3*ay),rz=Math.abs(1-3*az);
+      c=(Math.min(Math.max(rx,ry),Math.max(ry,rz),Math.max(rz,rx))-1)/(3*s);
+    }
+    if(c>d)d=c;
+  }
+  return d;
+}
+// --- The other worlds: the player lives in the coordinates of a deep iteration of the
+// formula. Shrinking past a threshold "consumes" one more iteration on the CPU (in doubles)
+// and keeps only which branch of each fold was taken, so numbers stay O(1) at any depth.
+const PKC=[1.0,1.0,1.3];
+function tri(v,c){return c-Math.abs(v+c-4*c*Math.floor((v+c)/(4*c))-2*c);}
+function gScale(G,k){for(let i=0;i<9;i++)G[i]*=k;}
+function gFlipRow(G,j){G[j*3]=-G[j*3];G[j*3+1]=-G[j*3+1];G[j*3+2]=-G[j*3+2];}
+function gReflect(G,n){for(let c=0;c<3;c++){const d=2*(n[0]*G[c]+n[1]*G[3+c]+n[2]*G[6+c]);G[c]-=d*n[0];G[3+c]-=d*n[1];G[6+c]-=d*n[2];}}
+function gS(G){return Math.cbrt(Math.abs(G[0]*(G[4]*G[8]-G[5]*G[7])-G[1]*(G[3]*G[8]-G[5]*G[6])+G[2]*(G[3]*G[7]-G[4]*G[6])));}
+function sphInv(p,G,K){
+  const r2=p[0]*p[0]+p[1]*p[1]+p[2]*p[2],k=K/r2,l=Math.sqrt(r2),n=[p[0]/l,p[1]/l,p[2]/l];
+  p[0]*=k;p[1]*=k;p[2]*=k;if(G){gReflect(G,n);gScale(G,k);}
+}
+const len3=p=>Math.hypot(p[0],p[1],p[2]);
+const opTile=per=>({
+  mar(p){let m=1e9;for(let j=0;j<3;j++)m=Math.min(m,per/2-Math.abs(p[j]-per*Math.round(p[j]/per)));return m;},
+  fwd(p){const b=[0,0,0];for(let j=0;j<3;j++){b[j]=Math.round(p[j]/per);p[j]-=per*b[j];}return b;},
+  inv(p,G,b){for(let j=0;j<3;j++)p[j]+=per*b[j];}});
+const opTri=C=>({
+  mar(p){let m=1e9;for(let j=0;j<3;j++)m=Math.min(m,C[j]-Math.abs(tri(p[j],C[j])));return m;},
+  fwd(p,G){const b=[];for(let j=0;j<3;j++){const c=C[j],m=Math.floor((p[j]+c)/(4*c)),u=p[j]+c-4*c*m,sg=u>=2*c?1:-1;
+    p[j]=c-Math.abs(u-2*c);if(G&&sg>0)gFlipRow(G,j);b.push(m,sg);}return b;},
+  inv(p,G,b){for(let j=0;j<3;j++){const c=C[j],m=b[j*2],sg=b[j*2+1];p[j]=2*c+sg*(c-p[j])-c+4*c*m;if(G&&sg>0)gFlipRow(G,j);}}});
+const opBoxFold={
+  mar(p){return Math.min(Math.abs(Math.abs(p[0])-1),Math.abs(Math.abs(p[1])-1),Math.abs(Math.abs(p[2])-1));},
+  fwd(p,G){const b=[0,0,0];for(let j=0;j<3;j++){if(p[j]>1)b[j]=1;else if(p[j]<-1)b[j]=-1;if(b[j]){p[j]=2*b[j]-p[j];if(G)gFlipRow(G,j);}}return b;},
+  inv(p,G,b){for(let j=0;j<3;j++)if(b[j]){p[j]=2*b[j]-p[j];if(G)gFlipRow(G,j);}}};
+const opInv=(K,thr)=>({
+  mar(p){const r=len3(p);return thr===Infinity?0.03*r:Math.min(Math.abs(r-Math.sqrt(thr)),r<Math.sqrt(thr)?0.03*r:1e9);},
+  fwd(p,G){if(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]>=thr)return 0;sphInv(p,G,K);return 1;},
+  inv(p,G,b){if(b)sphInv(p,G,K);}});
+const opBoxSphere={
+  mar(p){const r=len3(p);return Math.min(Math.abs(r-0.5),Math.abs(r-1),(r>0.5&&r<1)?0.03*r:1e9);},
+  fwd(p,G){const r2=p[0]*p[0]+p[1]*p[1]+p[2]*p[2];
+    if(r2<0.25){p[0]*=4;p[1]*=4;p[2]*=4;if(G)gScale(G,4);return 2;}
+    if(r2<1){sphInv(p,G,1);return 1;}return 0;},
+  inv(p,G,b){if(b===2){p[0]/=4;p[1]/=4;p[2]/=4;if(G)gScale(G,0.25);}else if(b===1)sphInv(p,G,1);}};
+const opAffine={
+  fwd(p,G){for(let j=0;j<3;j++)p[j]=p[j]*W.S+E.c0[j];if(G){gScale(G,W.S);for(let i=0;i<9;i++)G[i]+=E.G0[i];}return 0;},
+  inv(p,G){for(let j=0;j<3;j++)p[j]=(p[j]-E.c0[j])/W.S;if(G){for(let i=0;i<9;i++)G[i]-=E.G0[i];gScale(G,1/W.S);}}};
+// kaleidoscopic IFS: mirror folds, a fixed rotation, then scale about an offset
+function rotM(ax,ay,az){const cx=Math.cos(ax),sx=Math.sin(ax),cy=Math.cos(ay),sy=Math.sin(ay),cz=Math.cos(az),sz=Math.sin(az);
+  const Rx=[1,0,0,0,cx,-sx,0,sx,cx],Ry=[cy,0,sy,0,1,0,-sy,0,cy],Rz=[cz,-sz,0,sz,cz,0,0,0,1];
+  const mul=(A,B)=>{const C=[];for(let r=0;r<3;r++)for(let c=0;c<3;c++)C.push(A[r*3]*B[c]+A[r*3+1]*B[3+c]+A[r*3+2]*B[6+c]);return C;};
+  return mul(Rz,mul(Ry,Rx));}
+function gSwapRows(G,i,j){for(let c=0;c<3;c++){const t=G[i*3+c];G[i*3+c]=G[j*3+c];G[j*3+c]=t;}}
+function mulM(R,v,tr){return tr?[R[0]*v[0]+R[3]*v[1]+R[6]*v[2],R[1]*v[0]+R[4]*v[1]+R[7]*v[2],R[2]*v[0]+R[5]*v[1]+R[8]*v[2]]
+                             :[R[0]*v[0]+R[1]*v[1]+R[2]*v[2],R[3]*v[0]+R[4]*v[1]+R[5]*v[2],R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];}
+function rotPG(p,G,tr){
+  const KR=W.kr;const q=mulM(KR,p,tr);p[0]=q[0];p[1]=q[1];p[2]=q[2];
+  if(G)for(let c=0;c<3;c++){const w=mulM(KR,[G[c],G[3+c],G[6+c]],tr);G[c]=w[0];G[3+c]=w[1];G[6+c]=w[2];}
+}
+const opAbs={
+  mar(p){return Math.min(Math.abs(p[0]),Math.abs(p[1]),Math.abs(p[2]));},
+  fwd(p,G){const b=[0,0,0];for(let j=0;j<3;j++)if(p[j]<0){b[j]=1;p[j]=-p[j];if(G)gFlipRow(G,j);}return b;},
+  inv(p,G,b){for(let j=0;j<3;j++)if(b[j]){p[j]=-p[j];if(G)gFlipRow(G,j);}}};
+const opSwap=(i,j)=>({
+  mar(p){return Math.abs(p[i]-p[j])*0.7071;},
+  fwd(p,G){if(p[i]<p[j]){const t=p[i];p[i]=p[j];p[j]=t;if(G)gSwapRows(G,i,j);return 1;}return 0;},
+  inv(p,G,b){if(b){const t=p[i];p[i]=p[j];p[j]=t;if(G)gSwapRows(G,i,j);}}});
+const opRot={fwd(p,G){rotPG(p,G,false);return 0;},inv(p,G){rotPG(p,G,true);}};
+const opScaleOff={
+  fwd(p,G){const KS=W.ks,KO=W.ko;for(let j=0;j<3;j++)p[j]=p[j]*KS-KO[j]*(KS-1);if(G)gScale(G,KS);return 0;},
+  inv(p,G){const KS=W.ks,KO=W.ko;for(let j=0;j<3;j++)p[j]=(p[j]+KO[j]*(KS-1))/KS;if(G)gScale(G,1/KS);}};
+// tetrahedral mirror: reflect across the plane p_i + p_j = 0
+const opNeg=(i,j)=>({
+  mar(p){return Math.abs(p[i]+p[j])*0.7071;},
+  fwd(p,G){if(p[i]+p[j]<0){const t=p[i];p[i]=-p[j];p[j]=-t;if(G)for(let c=0;c<3;c++){const u=G[i*3+c];G[i*3+c]=-G[j*3+c];G[j*3+c]=-u;}return 1;}return 0;},
+  inv(p,G,b){if(b){const t=p[i];p[i]=-p[j];p[j]=-t;if(G)for(let c=0;c<3;c++){const u=G[i*3+c];G[i*3+c]=-G[j*3+c];G[j*3+c]=-u;}}}});
+const KOPS=[[opAbs,opSwap(0,1),opSwap(0,2),opSwap(1,2),opRot,opScaleOff],[opNeg(0,1),opNeg(0,2),opNeg(1,2),opRot,opScaleOff],[opAbs,opRot,opScaleOff]];
+function deKifs(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);
+  if(E.stack.length===0){const P=W.tile;x-=P*Math.round(x/P);y-=P*Math.round(y/P);z-=P*Math.round(z/P);}
+  let sc=1,t;const KR=W.kr,KS=W.ks,KO=W.ko,kf=W.rule||0;
+  for(let i=0;i<iters;i++){
+    if(kf===1){
+      if(x+y<0){t=x;x=-y;y=-t;} if(x+z<0){t=x;x=-z;z=-t;} if(y+z<0){t=y;y=-z;z=-t;}
+    }else{
+      x=Math.abs(x);y=Math.abs(y);z=Math.abs(z);
+      if(kf===0){if(x<y){t=x;x=y;y=t;} if(x<z){t=x;x=z;z=t;} if(y<z){t=y;y=z;z=t;}}
+    }
+    const a=KR[0]*x+KR[1]*y+KR[2]*z,b=KR[3]*x+KR[4]*y+KR[5]*z,c=KR[6]*x+KR[7]*y+KR[8]*z;
+    x=a*KS-KO[0]*(KS-1);y=b*KS-KO[1]*(KS-1);z=c*KS-KO[2]*(KS-1);sc*=KS;
+  }
+  return (Math.hypot(x,y,z)-1)/sc*E.invS;
+}
+
+let E={p:[0,0,0],G:[1,0,0,0,1,0,0,0,1],c0:[0,0,0],G0:[1,0,0,0,1,0,0,0,1],stack:[],virt:[],invS:1,dr0:1};
+const RN=6,RN_POP=4;   // fold boundaries must stay this many body-units away from a consumed level
+function eInit(p,k){const s=Math.pow(3,k);E={p:p.slice(),G:[s,0,0,0,s,0,0,0,s],c0:p.slice(),G0:[s,0,0,0,s,0,0,0,s],stack:[],virt:[],invS:1/s,dr0:1};eNorm();}
+function eMove(d){
+  const G=E.G,H=E.G0;
+  for(let j=0;j<3;j++){E.p[j]+=G[j*3]*d[0]+G[j*3+1]*d[1]+G[j*3+2]*d[2];E.c0[j]+=H[j*3]*d[0]+H[j*3+1]*d[1]+H[j*3+2]*d[2];}
+}
+function eLevel(p,G){
+  let mar=1e9;const br=[];
+  for(const o of W.ops){if(o.mar)mar=Math.min(mar,o.mar(p)/gS(G));br.push(o.fwd(p,G));}
+  return {br,mar};
+}
+function eNorm(){
+  const ops=W.ops,sLo=W.sLo;
+  for(let guard=0;guard<300;guard++){
+    const M=E.stack.length;let changed=false;
+    const p=E.p.slice(),G=E.G.slice();
+    for(let j=M-1;j>=Math.max(0,M-8);j--){
+      const br=E.stack[j];
+      for(let i=ops.length-1;i>=0;i--)ops[i].inv(p,G,br[i]);
+      const Sj=gS(G),info=eLevel(p.slice(),G.slice());
+      if(JSON.stringify(info.br)!==JSON.stringify(br)||(j===M-1&&Sj>=1.3*sLo)||(info.mar<RN_POP&&Sj>=sLo/15)){
+        E.p=p.slice();E.G=G.slice();E.stack.length=j;changed=true;break;
+      }
+    }
+    if(changed)continue;
+    if(gS(E.G)<sLo){
+      // consume iterations only if that magnifies, keeps fold boundaries out of reach,
+      // and the orbit has not escaped (escaped = empty space, nothing to resolve)
+      if(M===0&&W.wrap)W.wrap();
+      const p2=E.p.slice(),G2=E.G.slice(),S0=gS(G2);let best=0;
+      for(let t=1;t<=12;t++){
+        const Sb=gS(G2),info=eLevel(p2,G2);
+        if(info.mar<RN&&Sb>=sLo/20)break;
+        if(W.pmax&&len3(p2)>W.pmax)break;
+        if(gS(G2)>=2.5*S0){best=t;break;}
+      }
+      if(best){for(let t=0;t<best;t++)E.stack.push(eLevel(E.p,E.G).br);continue;}
+    }
+    break;
+  }
+  if(E.stack.length===0&&W.wrap)W.wrap();
+  const S=gS(E.G);E.invS=1/S;E.cr=gS(E.G0)/S;
+  iters=Math.max(W.iter0-1,Math.min(W.capMax,W.iter0+Math.ceil(Math.log(1/S)/Math.log(W.g)-1e-9)));
+}
+// true body size: the scale of the player's frame measured back in the original space
+function eK(fallback){
+  const p=E.p.slice(),G=E.G.slice();
+  for(let j=E.stack.length-1;j>=0;j--){const br=E.stack[j];for(let i=W.ops.length-1;i>=0;i--)W.ops[i].inv(p,G,br[i]);}
+  const l=Math.log(gS(G));
+  return isFinite(l)?Math.round(l/Math.log(3))-E.virt.length:fallback;
+}
+function eGradN(){
+  const e=1e-4,f=W.de,g=[f(e,0,0)-f(-e,0,0),f(0,e,0)-f(0,-e,0),f(0,0,e)-f(0,0,-e)],l=len3(g)||1;
+  return [g[0]/l,g[1]/l,g[2]/l];
+}
+// Shrinking. Two places have nothing finer to show, so the body stays put numerically:
+// empty space with no wall in reach, and a perfectly smooth face (there, scaling about
+// the player equals the wall receding to three times the distance).
+function eShrink(){
+  const d=W.de(0,0,0);
+  if(d>1e5){E.virt.push(0);return 'void';}
+  if(gS(E.G)/3<1e-10){const n=eGradN();eMove([n[0]*2*d,n[1]*2*d,n[2]*2*d]);eNorm();E.virt.push(1);return 'smooth';}
+  eScale(1/3);return 'ok';
+}
+function eGrow(){
+  if(E.virt.length){
+    if(E.virt.pop()){const d=W.de(0,0,0),n=eGradN(),m=-d*2/3;eMove([n[0]*m,n[1]*m,n[2]*m]);eNorm();}
+    return 'virt';
+  }
+  eScale(3);return 'real';
+}
+// reference orbit of the player's own point, used by the shader to keep precision
+const REF={R:new Float32Array(42),H:new Float32Array(42),L:new Float32Array(42),Sg:new Float32Array(42),Ms:new Float32Array(14),A:[0,0,0],Mc:0};
+function eRef(){
+  let a=E.p.slice();
+  for(let i=0;i<Math.min(iters,14);i++){
+    const r=[0,0,0];
+    for(let j=0;j<3;j++){
+      if(W.kind==='apo'){r[j]=a[j]-2*Math.round(a[j]/2);REF.H[i*3+j]=1-r[j];REF.L[i*3+j]=1+r[j];}
+      else{const c=PKC[j],m=Math.floor((a[j]+c)/(4*c)),u=a[j]+c-4*c*m;r[j]=c-Math.abs(u-2*c);
+        REF.Sg[i*3+j]=u>=2*c?-1:1;REF.H[i*3+j]=c-r[j];REF.L[i*3+j]=c+r[j];}
+      REF.R[i*3+j]=r[j];
+    }
+    const r2=r[0]*r[0]+r[1]*r[1]+r[2]*r[2];let k;
+    if(W.kind==='apo')k=APOS/r2;else{REF.Ms[i]=r2-1.2;k=r2<1.2?1.2/r2:1;}
+    a=[r[0]*k,r[1]*k,r[2]*k];
+  }
+  REF.A=a;REF.Mc=Math.hypot(a[0],a[1])-0.92784;
+}
+function eScale(k){gScale(E.G,k);gScale(E.G0,k);eNorm();}
+function wrapAll(per){return ()=>{for(let j=0;j<3;j++){const n=per[j]*Math.round(E.p[j]/per[j]);E.p[j]-=n;E.c0[j]-=n;}};}
+function eP(x,y,z){const G=E.G,p=E.p;return [p[0]+G[0]*x+G[1]*y+G[2]*z,p[1]+G[3]*x+G[4]*y+G[5]*z,p[2]+G[6]*x+G[7]*y+G[8]*z];}
+
+function cl(v){return v<-1?-1:(v>1?1:v);}
+function deBox(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);const H=E.G0,c=E.c0;
+  let cx=c[0]+H[0]*X+H[1]*Y+H[2]*Z,cy=c[1]+H[3]*X+H[4]*Y+H[5]*Z,cz=c[2]+H[6]*X+H[7]*Y+H[8]*Z;
+  const T=W.tile,BS=W.S,aS=Math.abs(BS);
+  if(E.stack.length===0){let n=T*Math.round(x/T);x-=n;cx-=n;n=T*Math.round(y/T);y-=n;cy-=n;n=T*Math.round(z/T);z-=n;cz-=n;}
+  let zx=x,zy=y,zz=z,dr=E.dr0;const cr=E.cr;
+  for(let i=0;i<iters;i++){
+    zx=cl(zx)*2-zx; zy=cl(zy)*2-zy; zz=cl(zz)*2-zz;
+    const r2=zx*zx+zy*zy+zz*zz;
+    if(r2<0.25){zx*=4;zy*=4;zz*=4;dr*=4;}
+    else if(r2<1){zx/=r2;zy/=r2;zz/=r2;dr/=r2;}
+    zx=zx*BS+cx; zy=zy*BS+cy; zz=zz*BS+cz; dr=dr*aS+cr;
+  }
+  return Math.sqrt(zx*zx+zy*zy+zz*zz)/dr*E.invS;
+}
+function fr(v){return v-Math.floor(v);}
+function deApo(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);let sc=1;
+  for(let i=0;i<iters;i++){
+    x=-1+2*fr(0.5*x+0.5); y=-1+2*fr(0.5*y+0.5); z=-1+2*fr(0.5*z+0.5);
+    const k=APOS/(x*x+y*y+z*z);
+    x*=k;y*=k;z*=k;sc*=k;
+  }
+  return 0.25*Math.abs(y)/sc*E.invS;
+}
+function dePK(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);let sc=1;
+  for(let i=0;i<iters;i++){
+    x=tri(x,PKC[0]);y=tri(y,PKC[1]);z=tri(z,PKC[2]);
+    const k=Math.max(1.2/(x*x+y*y+z*z),1);x*=k;y*=k;z*=k;sc*=k;
+  }
+  const rxy=Math.hypot(x,y);
+  return 0.6*Math.max(rxy-0.92784,Math.abs(rxy*z)/Math.hypot(x,y,z))/sc*E.invS;
+}
+// Automatic body size: scale smoothly about the player so the nearest wall stays about
+// W.dT body-units away. Returns the change in whole ×3 steps (Menger) for the label.
+function autoScale(f){
+  if(W.d4){
+    const ns=Math.min(Math.pow(3,W.maxK),Math.max(W.smin,F4.s*f));
+    F4.s=ns;iters=f4iters();return 0;
+  }
+  if(W.menger){
+    let dk=0;mZoom*=f;
+    while(mZoom<0.5774){mShrink();mZoom*=3;dk--;}
+    while(mZoom>1.7320){mGrow();mZoom/=3;dk++;}
+    mActive();return dk;
+  }
+  if(f<1){if(gS(E.G)*f<1e-10)return 0;}
+  else{if(E.virt.length===0&&eK(0)>=W.maxK)return 0;E.virt.length=0;}
+  eScale(f);return 0;
+}
+const BOXOPS=[opBoxFold,opBoxSphere,opAffine];
+const sLoOf=(g,iter0,cap)=>Math.pow(g,-(cap-iter0+0.5));
+const WORLDS=[
+  {name:'メンガー回廊 ／ 広さも深さも無限',de:deMenger,far:M_FAR,fly:true,yaw:0,menger:true,gk:0,dT:0.9,
+   init(){mInit(0);},
+   fold(p){mFold(p);p[0]=p[1]=p[2]=0;mActive();}},
+  {name:'マンデルボックス ／ 果てなく並ぶ箱',de:deBox,gk:1,S:2.6,tile:10,far:150,fly:true,yaw:-Math.PI/4,pitch:-0.62,maxK:2,dT:0.7,
+   iter0:9,capMax:20,pmax:12,g:2.6,sLo:sLoOf(2.6,9,16),ops:BOXOPS,wrap:wrapAll([10,10,10]),start:[5,5,5]},
+  {name:'アポロニアン聖堂 ／ 果てのない空洞',de:deApo,gk:2,delta:true,far:32,fly:true,yaw:0.6,maxK:1,dT:0.3,
+   kind:'apo',iter0:7,capMax:14,g:2.2,sLo:sLoOf(2.2,7,12),ops:[opTile(2),opInv(APOS,Infinity)],wrap:wrapAll([2,2,2]),start:[1.5,0.4,1.0]},
+  {name:'機巧の輪 ／ 箱の内側の歯車世界',de:deBox,gk:1,S:2.6,tile:10,far:60,fly:true,yaw:3.4,pitch:-0.4,startK:-1,maxK:1,dT:0.6,
+   iter0:10,capMax:20,pmax:12,g:2.6,sLo:sLoOf(2.6,10,16),ops:BOXOPS,wrap:wrapAll([10,10,10]),start:[-0.3051,2.2331,1.7602]},
+  {name:'虹の泡 ／ 暗い宇宙に続く球',de:dePK,gk:3,delta:true,far:45,fly:true,yaw:0.5,maxK:1,dT:0.5,
+   kind:'pk',iter0:7,capMax:14,g:2.0,sLo:sLoOf(2.0,7,12),ops:[opTri(PKC),opInv(1.2,1.2)],wrap:wrapAll([4,4,5.2]),start:[-1.1093,-0.7095,-1.2193]},
+  {name:'氷の結晶 ／ 十字が枝分かれする格子',de:deMenger,far:M_FAR,fly:true,yaw:0.7,pitch:-0.2,menger:true,gk:0,rule:1,dT:0.8,
+   init(){mInit(1);},
+   fold(p){mFold(p);p[0]=p[1]=p[2]=0;mActive();}},
+  {name:'骨の森 ／ 裏返しのマンデルボックス',de:deBox,gk:1,S:-1.5,tile:4.4,far:60,fly:true,yaw:-0.6,maxK:1,dT:0.5,
+   iter0:13,capMax:20,pmax:8,g:1.5,sLo:sLoOf(1.5,13,18),ops:BOXOPS,wrap:wrapAll([4.4,4.4,4.4]),start:[2.2,0.3,2.2]},
+  {name:'万華鏡 ／ 鏡と回転でできた花',de:deKifs,gk:4,tile:5,far:40,fly:true,yaw:-0.714,pitch:-0.425,maxK:1,dT:0.5,
+   iter0:12,capMax:20,pmax:6,g:1.8,sLo:sLoOf(1.8,12,17),ks:1.8,ko:[1.2,1.0,0.5],kr:rotM(0.5,0.2,-0.4),ops:KOPS[0],wrap:wrapAll([5,5,5]),start:[2.0,1.4,2.3]},
+  {name:'三角の塔 ／ シェルピンスキーの四面体',de:deKifs,gk:4,rule:1,tile:6,far:45,fly:true,yaw:-0.694,pitch:-0.39,maxK:1,dT:0.5,
+   iter0:12,capMax:24,pmax:6,g:2,sLo:sLoOf(2,12,17),ks:2,ko:[1,1,1],kr:rotM(0,0,0),ops:KOPS[1],wrap:wrapAll([6,6,6]),start:[1.6,1.05,1.9]},
+  {name:'渦の貝殻 ／ ねじれた四面体',de:deKifs,gk:4,rule:1,tile:6,far:45,fly:true,yaw:-0.694,pitch:-0.39,maxK:1,dT:0.5,
+   iter0:12,capMax:24,pmax:6,g:2,sLo:sLoOf(2,12,17),ks:2,ko:[1,1,1],kr:rotM(0.3,0.1,0.2),ops:KOPS[1],wrap:wrapAll([6,6,6]),start:[1.6,1.05,1.9]},
+  {name:'穴あきの花 ／ ねじれたスポンジ',de:deKifs,gk:4,rule:0,tile:6,far:45,fly:true,yaw:-0.694,pitch:-0.39,maxK:1,dT:0.5,
+   iter0:8,capMax:18,pmax:6,g:3,sLo:sLoOf(3,8,12),ks:3,ko:[1,1,0],kr:rotM(0.1,0,0.15),ops:KOPS[0],wrap:wrapAll([6,6,6]),start:[1.6,1.05,1.9]},
+  {name:'岩の小惑星 ／ ひび割れ続ける岩',de:deKifs,gk:4,rule:2,tile:6,far:45,fly:true,yaw:-0.694,pitch:-0.39,maxK:1,dT:0.5,
+   iter0:15,capMax:28,pmax:6,g:1.6,sLo:sLoOf(1.6,15,21),ks:1.6,ko:[1.0,0.6,0.9],kr:rotM(0.7,0.3,0.5),ops:KOPS[2],wrap:wrapAll([6,6,6]),start:[1.6,1.05,1.9]}
+];
+// ---- 4D worlds ----
+// The player's 3D space is a slice through a 4D fractal: world4 = P + s*M*(x,y,z,0).
+// Column 3 of M is the hidden 4th direction; moving along it, or turning into it,
+// changes which slice you stand in.
+let F4={P:[0,0,0,0],M:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],s:1};
+function f4pt(x,y,z){const M=F4.M,P=F4.P,s=F4.s;
+  return [P[0]+s*(M[0]*x+M[1]*y+M[2]*z),P[1]+s*(M[4]*x+M[5]*y+M[6]*z),P[2]+s*(M[8]*x+M[9]*y+M[10]*z),P[3]+s*(M[12]*x+M[13]*y+M[14]*z)];}
+function f4move(x,y,z,w){const M=F4.M,s=F4.s;
+  for(let i=0;i<4;i++)F4.P[i]+=s*(M[i*4]*x+M[i*4+1]*y+M[i*4+2]*z+M[i*4+3]*w);
+  W.wrap4(F4.P);}
+// rotate in the plane spanned by a local 3D direction v and the hidden 4th axis
+function f4rot(v,ang){
+  const M=F4.M,c=Math.cos(ang),sn=Math.sin(ang);
+  for(let i=0;i<4;i++){
+    const a=M[i*4]*v[0]+M[i*4+1]*v[1]+M[i*4+2]*v[2],b=M[i*4+3];
+    const a2=a*c+b*sn,b2=-a*sn+b*c;
+    for(let j=0;j<3;j++)M[i*4+j]+=(a2-a)*v[j];
+    M[i*4+3]=b2;
+  }
+  // re-orthonormalize (Gram-Schmidt on columns)
+  for(let j=0;j<4;j++){
+    for(let k=0;k<j;k++){let d=0;for(let i=0;i<4;i++)d+=M[i*4+j]*M[i*4+k];for(let i=0;i<4;i++)M[i*4+j]-=d*M[i*4+k];}
+    let l=0;for(let i=0;i<4;i++)l+=M[i*4+j]*M[i*4+j];l=Math.sqrt(l);for(let i=0;i<4;i++)M[i*4+j]/=l;
+  }
+}
+function f4iters(){return Math.min(W.capMax,W.iter0+Math.max(0,Math.ceil(Math.log(1/F4.s)/Math.log(W.g)-1e-9)));}
+function deM4(x,y,z,w,it){
+  x-=2*Math.round(x/2);y-=2*Math.round(y/2);z-=2*Math.round(z/2);w-=2*Math.round(w/2);
+  let s=1;const a=[0,0,0,0];
+  for(let i=0;i<it;i++){
+    a[0]=Math.abs(x);a[1]=Math.abs(y);a[2]=Math.abs(z);a[3]=Math.abs(w);a.sort((p,q)=>q-p);
+    x=3*a[0]-2;y=3*a[1]-2;z=3*a[2];w=3*a[3];
+    if(z>1)z-=2; if(w>1)w-=2; s*=3;
+  }
+  const qx=Math.abs(x)-1,qy=Math.abs(y)-1,qz=Math.abs(z)-1,qw=Math.abs(w)-1;
+  const o=Math.hypot(Math.max(qx,0),Math.max(qy,0),Math.max(qz,0),Math.max(qw,0)),inn=Math.min(Math.max(qx,qy,qz,qw),0);
+  return (o+inn)/s;
+}
+function deB4(x,y,z,w,it){
+  x-=10*Math.round(x/10);y-=10*Math.round(y/10);z-=10*Math.round(z/10);w-=10*Math.round(w/10);
+  let zx=x,zy=y,zz=z,zw=w,dr=1;
+  for(let i=0;i<it;i++){
+    zx=cl(zx)*2-zx;zy=cl(zy)*2-zy;zz=cl(zz)*2-zz;zw=cl(zw)*2-zw;
+    const r2=zx*zx+zy*zy+zz*zz+zw*zw;
+    if(r2<0.25){zx*=4;zy*=4;zz*=4;zw*=4;dr*=4;}else if(r2<1){zx/=r2;zy/=r2;zz/=r2;zw/=r2;dr/=r2;}
+    zx=zx*2.2+x;zy=zy*2.2+y;zz=zz*2.2+z;zw=zw*2.2+w;dr=dr*2.2+1;
+  }
+  return Math.sqrt(zx*zx+zy*zy+zz*zz+zw*zw)/dr;
+}
+const JC=[-0.2,0.6,0.2,0.2];
+function deJ4(x,y,z,w,it){
+  x-=4*Math.round(x/4);y-=4*Math.round(y/4);z-=4*Math.round(z/4);
+  let m=x*x+y*y+z*z+w*w,dz=1;
+  for(let i=0;i<it;i++){
+    dz=2*Math.sqrt(m)*dz;
+    const nx=x*x-y*y-z*z-w*w+JC[0];y=2*x*y+JC[1];z=2*x*z+JC[2];w=2*x*w+JC[3];x=nx;
+    m=x*x+y*y+z*z+w*w;if(m>256)break;
+  }
+  const r=Math.sqrt(m);return 0.5*r*Math.log(r)/dz;
+}
+const K4DE=[deM4,deB4,deJ4];
+function mk4(o){return Object.assign({d4:true,gk:5,fly:true,maxK:2,
+  init(){F4={P:this.start.slice(),M:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],s:1};iters=f4iters();},
+  fold(p){f4move(p[0],p[1],p[2],0);p[0]=p[1]=p[2]=0;},
+  de(x,y,z){const q=f4pt(x,y,z);return K4DE[this.k4](q[0],q[1],q[2],q[3],iters)/F4.s;}},o);}
+WORLDS.push(
+  mk4({name:'超立方体スポンジ ／ 4次元のメンガー',k4:0,far:40,yaw:0.29,pitch:-0.19,dT:0.5,iter0:5,capMax:9,g:3,smin:3e-4,
+    start:[0,0.03,1.0,0],wrap4(P){for(let i=0;i<4;i++)P[i]-=2*Math.round(P[i]/2);}}),
+  mk4({name:'4次元の箱 ／ 4次元マンデルボックス',k4:1,far:120,yaw:-0.785,pitch:-0.44,dT:0.6,iter0:10,capMax:20,g:2.2,smin:3e-4,
+    start:[5,5,5,0.25],wrap4(P){for(let i=0;i<4;i++)P[i]-=10*Math.round(P[i]/10);}}),
+  mk4({name:'四元数の森 ／ 4次元ジュリア集合',k4:2,far:40,yaw:-0.69,pitch:-0.41,dT:0.5,iter0:11,capMax:20,g:2,smin:3e-4,
+    start:[2.0,1.4,2.3,0],wrap4(P){for(let i=0;i<3;i++)P[i]-=4*Math.round(P[i]/4);}})
+);
+const CR2=0.9025,CH=0.3;
+const opTileXZ={
+  mar(p){return Math.min(1-Math.abs(p[0]-2*Math.round(p[0]/2)),1-Math.abs(p[2]-2*Math.round(p[2]/2)));},
+  fwd(p){const b=[Math.round(p[0]/2),Math.round(p[2]/2)];p[0]-=2*b[0];p[2]-=2*b[1];return b;},
+  inv(p,G,b){p[0]+=2*b[0];p[2]+=2*b[1];}};
+const opCrater={
+  mar(p){const r=len3(p),R=Math.sqrt(CR2);return Math.min(Math.abs(r-R),r<R?0.03*r:1e9);},
+  fwd(p,G){if(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]<CR2){sphInv(p,G,CR2);return 1;}
+    p[0]*=3;p[2]*=3;p[1]=(p[1]-CH)*3+CH;if(G)gScale(G,3);return 0;},
+  inv(p,G,b){if(b){sphInv(p,G,CR2);return;}
+    p[0]/=3;p[2]/=3;p[1]=(p[1]-CH)/3+CH;if(G)gScale(G,1/3);}};
+function deCrater(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);let sc=1;
+  for(let i=0;i<iters;i++){
+    x-=2*Math.round(x/2);z-=2*Math.round(z/2);
+    const r2=x*x+y*y+z*z;
+    if(r2<CR2){const k=CR2/r2;x*=k;y*=k;z*=k;sc*=k;}
+    else{x*=3;z*=3;y=(y-CH)*3+CH;sc*=3;}
+  }
+  return 0.5*(y-CH)/sc*E.invS;
+}
+WORLDS.push({name:'クレーターの谷 ／ 穴の中に穴が続く大地',de:deCrater,gk:6,far:40,fly:true,yaw:0.05,pitch:-0.6,maxK:1,dT:0.5,
+  iter0:9,capMax:16,pmax:6,g:3,sLo:sLoOf(3,9,13),ops:[opTileXZ,opCrater],start:[0.3,1.1,1.4],
+  wrap(){for(const j of [0,2]){const n=2*Math.round(E.p[j]/2);E.p[j]-=n;E.c0[j]-=n;}}});
+let W=WORLDS[0];
+for(const w of WORLDS)if(!w.menger&&!w.d4){
+  w.init=function(){eInit(this.start,this.startK||0);};
+  w.fold=function(p){eMove(p);p[0]=p[1]=p[2]=0;eNorm();};
+}
+//DE-END
+
+const $=id=>document.getElementById(id);
+const cv=$('gl');
+const gl=cv.getContext('webgl',{antialias:false,alpha:false,powerPreference:'high-performance'});
+if(!gl){$('err').style.display='flex';}
+else{
+
+// ---------- GL ----------
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
+const fsSrc=$('fs').textContent.replace(/APOS/g,APOS.toFixed(4));
+const prog=gl.createProgram();
+gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
+gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fsSrc));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){$('err').style.display='flex';console.error(gl.getProgramInfoLog(prog));}
+gl.useProgram(prog);
+gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
+const aL=gl.getAttribLocation(prog,"a");gl.enableVertexAttribArray(aL);gl.vertexAttribPointer(aL,2,gl.FLOAT,false,0,0);
+const U={};['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uP4','uM4','uS4','uK4','uN','uA[0]','uS[0]','uT[0]'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+
+let quality=0.55;
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2)*quality;
+  const w=Math.max(160,Math.round(cv.clientWidth*dpr)),h=Math.max(120,Math.round(cv.clientHeight*dpr));
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;gl.viewport(0,0,w,h);}
+}
+addEventListener('resize',resize);
+
+// ---------- state ----------
+let world=0;
+let camR=[1,0,0],camU=[0,1,0],camF=[0,0,-1];
+function setLook(yw,pt){const sy=Math.sin(yw),cy=Math.cos(yw),sp=Math.sin(pt),cp=Math.cos(pt);camF=[sy*cp,sp,-cy*cp];camR=[cy,0,sy];camU=cr3(camR,camF);}
+function cr3(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];}
+// free look: turn about the camera's own axes, so there is no up/down limit
+const DEF={grav:1,jump:1,fall:2.5,look:'walk',sens:1,edge:true};
+let OPT=Object.assign({},DEF);
+try{const v=JSON.parse(localStorage.getItem('fractalWalkOpt')||'null');if(v)OPT=Object.assign(OPT,v);}catch(_){}
+function saveOpt(){try{localStorage.setItem('fractalWalkOpt',JSON.stringify(OPT));}catch(_){}}
+function limitOn(){return OPT.look==='always'||(OPT.look==='walk'&&!fly);}
+// With gravity on, the view is pulled back level: no roll, the head above the feet,
+// and up/down limited to just short of straight up or down.
+function levelTarget(){
+  let hx=camF[0],hz=camF[2];
+  if(Math.hypot(hx,hz)<0.05){const sg=camF[1]<0?1:-1;hx=camU[0]*sg;hz=camU[2]*sg;}
+  if(camU[1]<0){hx=-hx;hz=-hz;}          // upside down: face the way the head points
+  const yw=Math.atan2(hx,-hz);
+  let pt=Math.asin(Math.max(-1,Math.min(1,camF[1])));
+  if(camU[1]<0)pt=(pt>0?1:-1)*Math.PI-pt;   // over the top: mirror back
+  pt=Math.max(-1.45,Math.min(1.45,pt));
+  const sy=Math.sin(yw),cy=Math.cos(yw),sp=Math.sin(pt),cp=Math.cos(pt);
+  const F=[sy*cp,sp,-cy*cp],R=[cy,0,sy];return [F,cr3(R,F)];
+}
+function levelView(dt){
+  const [F,U]=levelTarget(),k=1-Math.exp(-dt*7);
+  let f=[0,1,2].map(i=>camF[i]+(F[i]-camF[i])*k),u=[0,1,2].map(i=>camU[i]+(U[i]-camU[i])*k);
+  const fl=Math.hypot(f[0],f[1],f[2]);if(fl<1e-6)return;f=f.map(v=>v/fl);
+  let r=cr3(f,u);const rl=Math.hypot(r[0],r[1],r[2]);if(rl<1e-6)return;
+  camF=f;camR=r.map(v=>v/rl);camU=cr3(camR,camF);
+}
+function turn(a,b){
+  a*=OPT.sens;b*=OPT.sens;
+  if(limitOn()){
+    // walking: turn about the world's up axis, look up/down about the level right axis
+    const [F]=levelTarget();
+    let yw=Math.atan2(F[0],-F[2])+a,pt=Math.asin(Math.max(-1,Math.min(1,F[1])))+b;
+    pt=Math.max(-1.45,Math.min(1.45,pt));
+    const aligned=Math.abs(camR[1])<0.02&&camU[1]>0;
+    const sy=Math.sin(yw),cy=Math.cos(yw),sp=Math.sin(pt),cp=Math.cos(pt);
+    const nF=[sy*cp,sp,-cy*cp],nR=[cy,0,sy];
+    if(aligned){camF=nF;camR=nR;camU=cr3(nR,nF);return;}
+  }
+  const ca=Math.cos(a),sa=Math.sin(a);let f=[0,1,2].map(i=>camF[i]*ca+camR[i]*sa);
+  const cb=Math.cos(b),sb=Math.sin(b);const u=[0,1,2].map(i=>camU[i]*cb-f[i]*sb);f=[0,1,2].map(i=>f[i]*cb+camU[i]*sb);
+  const l=Math.hypot(f[0],f[1],f[2]);camF=f.map(v=>v/l);
+  let r=cr3(camF,u);const rl=Math.hypot(r[0],r[1],r[2]);camR=r.map(v=>v/rl);camU=cr3(camR,camF);
+}
+let pos=[0,0,0],vy=0,yaw=0,pitch=0,size=1,kexp=0,fly=false,grounded=false,fallT=0;
+function label(k){
+  if(k>=0)return k<=8?'×'+Math.pow(3,k):'×3<sup>'+k+'</sup>';
+  if(k>=-5)return '×1/'+Math.pow(3,-k);
+  return '×1/3<sup>'+(-k)+'</sup>';
+}
+function setWorld(i){
+  world=i;W=WORLDS[i];kexp=W.startK||0;size=1;W.init();pos=[0,0,0];setLook(W.yaw,W.pitch||0);vy=0;fallT=0;setFly(W.fly);
+  for(let k=0;k<WORLDS.length;k++)$('w'+k).setAttribute('aria-pressed',k===i);
+  $('wname').textContent=W.name;$('sz').innerHTML=label(kexp);
+  $('ctl4').hidden=!W.d4;
+  if(W.d4)toast('Z/X か「4D −/＋」で4次元目へ移動、C/V で4次元へ回転');
+}
+let auto=true;
+function setAuto(v){auto=v;$('auto').setAttribute('aria-pressed',v);if(v&&!fly)setFly(true);toast(v?'自動サイズ：壁に近づくと縮み、離れると育ちます':'自動サイズを切りました');}
+function setFly(v){fly=v;$('fly').setAttribute('aria-pressed',v);$('jump').textContent=v?'上昇':'ジャンプ';vy=0;fallT=0;}
+let toastT=0;
+function toast(m){const t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toastT);toastT=setTimeout(()=>t.style.opacity=0,1900);}
+function fits(p,r){
+  for(let k=0;k<10;k++){
+    const d=W.de(p[0],p[1],p[2]);if(d>=r)break;
+    const n=grad(p);p[0]+=n[0]*(r-d);p[1]+=n[1]*(r-d);p[2]+=n[2]*(r-d);
+  }
+  return W.de(p[0],p[1],p[2])>=r*0.9;
+}
+function resize_body(dir){
+  vy=0;fallT=0;
+  if(W.d4){
+    W.fold(pos);pos=[0,0,0];
+    const ns=F4.s*Math.pow(3,dir);
+    if(ns<W.smin*0.99){toast('4次元の世界はここまでしか縮めません');return;}
+    if(ns>Math.pow(3,W.maxK)*1.01){toast('これ以上は大きくなれません');return;}
+    const old=F4.s;F4.s=ns;iters=f4iters();
+    if(dir>0&&!fits(pos,R0)){F4.s=old;iters=f4iters();toast('ここは狭くて大きくなれません');return;}
+    kexp=Math.round(Math.log(F4.s)/Math.log(3));
+  }else if(W.menger){
+    W.fold(pos);
+    if(dir<0){mShrink();kexp--;}
+    else{
+      const popped=mGrow();const p=[0,0,0];
+      if(!fits(p,R0)){lv.push(popped);mActive();toast('ここは狭くて大きくなれません');return;}
+      pos=p;W.fold(pos);kexp++;
+    }
+  }else{
+    W.fold(pos);
+    if(dir<0){
+      const r=eShrink();
+      if(r==='void')toast('まわりに何もない空間です。壁の近くで縮むと続きが現れます');
+      if(r==='smooth')toast('なめらかな面の上です。この先は同じ景色が続きます');
+      kexp=eK(kexp-1);
+    }else{
+      if(E.virt.length===0&&eK(kexp)>=W.maxK){toast('これ以上は大きくなれません');return;}
+      const r=eGrow(),p=[0,0,0];
+      if(!fits(p,R0)&&r==='real'){eScale(1/3);toast('ここは狭くて大きくなれません');return;}
+      pos=p;W.fold(pos);kexp=eK(kexp+1);
+    }
+  }
+  $('sz').innerHTML=label(kexp);
+}
+function grad(p){
+  const e=1e-4*Math.max(size,0.1),f=W.de;
+  const gx=f(p[0]+e,p[1],p[2])-f(p[0]-e,p[1],p[2]);
+  const gy=f(p[0],p[1]+e,p[2])-f(p[0],p[1]-e,p[2]);
+  const gz=f(p[0],p[1],p[2]+e)-f(p[0],p[1],p[2]-e);
+  const l=Math.hypot(gx,gy,gz)||1;return [gx/l,gy/l,gz/l];
+}
+
+// ---------- input ----------
+const keys={};let mx=0,mz=0,jumpHeld=false,moved=false;
+addEventListener('keydown',e=>{
+  if(e.repeat)return;keys[e.code]=true;
+  if(e.code==='KeyF')setFly(!fly);
+  if(e.code==='KeyG')setAuto(!auto);
+  if(e.code==='KeyO')showOpt(panel.hidden);
+  if(e.code==='KeyH')setUI(document.body.classList.contains('noui'));
+  if(e.code==='KeyQ')resize_body(-1);
+  if(e.code==='KeyE')resize_body(1);
+  if(/^Digit[1-9]$/.test(e.code))setWorld(+e.code.slice(5)-1);
+  if(e.code==='Space'||e.code.startsWith('Arrow'))e.preventDefault();
+});
+addEventListener('keyup',e=>{keys[e.code]=false;});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
+
+let stickId=null,stickO=[0,0],lookId=null,lookP=[0,0];
+const stick=$('stick'),knob=$('knob');
+function stickCenter(){const r=stick.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];}
+// ---- mouse: the view follows the cursor with no button held ----
+// Clicking the view also tries pointer lock (cursor hidden, unlimited turning; Esc releases).
+// Where the frame refuses pointer lock, the cursor still turns the view, and holding it
+// near an edge of the screen keeps turning in that direction.
+let mLast=null,mIn=false,mEdge=[0,0];
+const MS=0.0042;
+function locked(){return document.pointerLockElement===cv;}
+function tryLock(){
+  if(locked()||!cv.requestPointerLock)return;
+  try{const r=cv.requestPointerLock();if(r&&r.catch)r.catch(()=>{});}catch(_){}
+}
+document.addEventListener('pointerlockchange',()=>{
+  $('lockhint').style.opacity=locked()?1:0;mLast=null;
+});
+cv.addEventListener('mousemove',e=>{
+  if(locked()){turn(e.movementX*MS,-e.movementY*MS);return;}
+  mIn=true;
+  if(mLast)turn((e.clientX-mLast[0])*MS,-(e.clientY-mLast[1])*MS);
+  mLast=[e.clientX,e.clientY];
+  const ex=e.clientX/innerWidth,ey=e.clientY/innerHeight,b=0.07;
+  mEdge=[ex<b?-(b-ex)/b:(ex>1-b?(ex-(1-b))/b:0), ey<b?(b-ey)/b:(ey>1-b?-(ey-(1-b))/b:0)];
+});
+cv.addEventListener('mouseleave',()=>{mIn=false;mLast=null;mEdge=[0,0];});
+cv.addEventListener('mousedown',()=>tryLock());
+cv.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse')return;
+  cv.setPointerCapture(e.pointerId);
+  if(stickId===null&&e.clientX<innerWidth*0.45&&e.clientY>innerHeight*0.35){
+    stickId=e.pointerId;stickO=stickCenter();moveStick(e);
+  }else if(lookId===null){lookId=e.pointerId;lookP=[e.clientX,e.clientY];}
+});
+function moveStick(e){
+  let dx=e.clientX-stickO[0],dy=e.clientY-stickO[1];const m=48,l=Math.hypot(dx,dy);
+  if(l>m){dx*=m/l;dy*=m/l;}
+  knob.style.transform='translate('+dx+'px,'+dy+'px)';mx=dx/m;mz=-dy/m;
+}
+cv.addEventListener('pointermove',e=>{
+  if(e.pointerId===stickId)moveStick(e);
+  else if(e.pointerId===lookId){
+    const s=0.0058;
+    turn((e.clientX-lookP[0])*s,-(e.clientY-lookP[1])*s);lookP=[e.clientX,e.clientY];
+  }
+});
+function up(e){
+  if(e.pointerId===stickId){stickId=null;mx=mz=0;knob.style.transform='';}
+  if(e.pointerId===lookId)lookId=null;
+}
+cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+function tap(id,fn){$(id).addEventListener('click',fn);}
+for(let k=0;k<WORLDS.length;k++)tap('w'+k,()=>setWorld(k));
+tap('smaller',()=>resize_body(-1));tap('bigger',()=>resize_body(1));
+tap('fly',()=>setFly(!fly));
+tap('auto',()=>setAuto(!auto));
+const hold4={};
+for(const id of ['w4m','w4p','r4m','r4p']){const b=$(id);
+  b.addEventListener('pointerdown',e=>{hold4[id]=true;b.setPointerCapture(e.pointerId);});
+  const off=()=>hold4[id]=false;b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);}
+const jb=$('jump');
+jb.addEventListener('pointerdown',e=>{jumpHeld=true;jb.setPointerCapture(e.pointerId);});
+jb.addEventListener('pointerup',()=>jumpHeld=false);jb.addEventListener('pointercancel',()=>jumpHeld=false);
+
+function setUI(v){
+  document.body.classList.toggle('noui',!v);$('showui').hidden=v;
+  if(!v)showOpt(false);
+}
+tap('hideui',()=>setUI(false));tap('showui',()=>setUI(true));
+const panel=$('panel');
+function showOpt(v){panel.hidden=!v;$('opt').setAttribute('aria-expanded',v);if(v&&locked())document.exitPointerLock();}
+tap('opt',()=>showOpt(panel.hidden));tap('optclose',()=>showOpt(false));
+['mousemove','mousedown','pointerdown','wheel'].forEach(t=>panel.addEventListener(t,e=>e.stopPropagation()));
+function fmtFall(v){return v>0?v+' 秒後':'切り替えない';}
+function syncOpt(){
+  $('sGrav').value=OPT.grav;$('vGrav').textContent='×'+(+OPT.grav).toFixed(1);
+  $('sJump').value=OPT.jump;$('vJump').textContent='×'+(+OPT.jump).toFixed(1);
+  $('sFall').value=OPT.fall;$('vFall').textContent=fmtFall(+OPT.fall);
+  $('sSens').value=OPT.sens;$('vSens').textContent='×'+(+OPT.sens).toFixed(1);
+  $('sEdge').checked=OPT.edge;
+  document.querySelectorAll('input[name=sLook]').forEach(r=>r.checked=r.value===OPT.look);
+}
+[['sGrav','grav'],['sJump','jump'],['sFall','fall'],['sSens','sens']].forEach(([id,k])=>
+  $(id).addEventListener('input',e=>{OPT[k]=+e.target.value;syncOpt();saveOpt();}));
+$('sEdge').addEventListener('change',e=>{OPT.edge=e.target.checked;saveOpt();});
+document.querySelectorAll('input[name=sLook]').forEach(r=>r.addEventListener('change',()=>{OPT.look=r.value;saveOpt();}));
+tap('sReset',()=>{OPT=Object.assign({},DEF);syncOpt();saveOpt();});
+syncOpt();
+const touch=matchMedia('(hover:none)').matches;
+$('hint').innerHTML=touch
+  ?'左下のスティックで移動、画面をドラッグで見回す。<br>体の大きさは自動で変わります。壁へ向かって進むと、縮みながら奥へ入っていけます。'
+  :'マウスを動かすと見回す（クリックでカーソル固定、Escで解除）<br>WASD 移動 ・ Space ジャンプ/上昇<br>F 飛行 ・ G 自動サイズ ・ O 設定 ・ H UIを隠す ・ Q/E 縮む/育つ ・ 1〜9 ワールド<br>壁へ向かって進むと、縮みながら奥へ入っていけます';
+
+// ---------- physics ----------
+function collide(){
+  const r=R0*size;grounded=false;
+  for(let k=0;k<4;k++){
+    const d=W.de(pos[0],pos[1],pos[2]);
+    if(d>=r)break;
+    const n=grad(pos),push=r-d;
+    pos[0]+=n[0]*push;pos[1]+=n[1]*push;pos[2]+=n[2]*push;
+    if(n[1]>0.55){grounded=true;if(vy<0)vy=0;}
+    if(n[1]<-0.55&&vy>0)vy=0;
+  }
+}
+function step(dt){
+  if(W.d4){
+    const mv=((keys.KeyX||hold4.w4p)?1:0)-((keys.KeyZ||hold4.w4m)?1:0);
+    const rt=((keys.KeyV||hold4.r4p)?1:0)-((keys.KeyC||hold4.r4m)?1:0);
+    if(rt){W.fold(pos);pos=[0,0,0];f4rot(camR,rt*0.8*dt);collide();}
+    if(mv){W.fold(pos);pos=[0,0,0];
+      const n=Math.max(1,Math.ceil(0.9*dt/(0.4*R0)));
+      for(let i=0;i<n;i++){f4move(0,0,0,mv*0.9*dt/n);collide();}}
+  }
+  if(limitOn())levelView(dt);
+  if(OPT.edge&&!locked()&&mIn&&(mEdge[0]||mEdge[1]))turn(mEdge[0]*1.6*dt/OPT.sens,mEdge[1]*1.6*dt/OPT.sens);
+  let ix=mx,iz=mz;
+  if(keys.KeyW||keys.ArrowUp)iz+=1;if(keys.KeyS||keys.ArrowDown)iz-=1;
+  if(keys.KeyD||keys.ArrowRight)ix+=1;if(keys.KeyA||keys.ArrowLeft)ix-=1;
+  const il=Math.hypot(ix,iz);if(il>1){ix/=il;iz/=il;}
+  if(il>0.2&&!moved){moved=true;setTimeout(()=>$('hint').style.opacity=0,2500);}
+  const jump=jumpHeld||keys.Space;
+  let vx,vz,vyy;
+  if(fly){
+    const v=1.5*size*(keys.ShiftLeft?2.2:1),j=jump?0.8:0;
+    vx=(camR[0]*ix+camF[0]*iz+camU[0]*j)*v;vyy=(camR[1]*ix+camF[1]*iz+camU[1]*j)*v;vz=(camR[2]*ix+camF[2]*iz+camU[2]*j)*v;vy=0;
+  }else{
+    const v=0.9*size*(keys.ShiftLeft?1.8:1);
+    // walking: forward is the view direction flattened onto the ground
+    let hx=camF[0],hz=camF[2];
+    if(Math.hypot(hx,hz)<0.15){const sg=camF[1]<0?1:-1;hx=camU[0]*sg;hz=camU[2]*sg;}
+    const hl=Math.hypot(hx,hz)||1;hx/=hl;hz/=hl;
+    vx=(-hz*ix+hx*iz)*v;vz=(hx*ix+hz*iz)*v;
+    const gv=3.2*OPT.grav;
+    if(grounded&&jump)vy=1.5*size*Math.sqrt(OPT.grav*OPT.jump);
+    vy=Math.max(vy-gv*size*dt,-3.6*size*Math.sqrt(OPT.grav));vyy=vy;
+  }
+  const dist=Math.hypot(vx,vyy,vz)*dt,n=Math.min(8,Math.max(1,Math.ceil(dist/(0.4*R0*size))));
+  let g=false;
+  for(let i=0;i<n;i++){
+    pos[0]+=vx*dt/n;pos[1]+=vyy*dt/n;pos[2]+=vz*dt/n;collide();g=g||grounded;
+  }
+  grounded=g;
+  if(!fly&&!grounded&&vy<0){fallT+=dt;if(OPT.fall>0&&fallT>OPT.fall){setFly(true);toast('落ち続けたので飛行に切り替えました');}}
+  else fallT=0;
+  W.fold(pos);
+  if(auto&&fly){
+    const d=W.de(0,0,0);
+    const u=Math.max(-1,Math.min(1,Math.log(Math.max(d,1e-9)/W.dT)));
+    if(Math.abs(u)>0.06){
+      const dk=autoScale(Math.exp(u*2.4*dt));
+      if(dk){kexp+=dk;$('sz').innerHTML=label(kexp);}
+    }
+  }
+}
+
+// ---------- loop ----------
+let last=performance.now(),acc=0,frames=0;
+const fA=new Float32Array(24),fS=new Float32Array(8).fill(1),fT=new Float32Array(8);
+function frame(now){
+  const raw=now-last;last=now;
+  const dt=Math.min(raw,50)/1000;
+  step(dt);
+  acc+=raw;frames++;
+  if(frames>=24){
+    if(W.d4){const k=Math.round(Math.log(F4.s)/Math.log(3));if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
+    else if(!W.menger){const k=eK(kexp);if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
+    const avg=acc/frames;acc=0;frames=0;
+    if(avg>26&&quality>0.25)quality=Math.max(0.25,quality*0.85);
+    else if(avg<15&&quality<1)quality=Math.min(1,quality*1.08);
+  }
+  resize();
+  const f=camF,r=camR,u=camU;
+  gl.uniform2f(U.uRes,cv.width,cv.height);
+  gl.uniform3f(U.uPos,pos[0],pos[1],pos[2]);
+  gl.uniformMatrix3fv(U.uRot,false,[r[0],r[1],r[2],u[0],u[1],u[2],-f[0],-f[1],-f[2]]);
+  gl.uniform1i(U.uWorld,world);gl.uniform1i(U.uKind,W.gk);gl.uniform1i(U.uRule,W.rule||0);
+  gl.uniform1f(U.uScale,size);
+  gl.uniform1f(U.uFar,W.far);
+  gl.uniform1i(U.uIter,iters);
+  if(W.d4){
+    const M=F4.M;
+    gl.uniform4f(U.uP4,F4.P[0],F4.P[1],F4.P[2],F4.P[3]);
+    gl.uniformMatrix4fv(U.uM4,false,[M[0],M[4],M[8],M[12],M[1],M[5],M[9],M[13],M[2],M[6],M[10],M[14],M[3],M[7],M[11],M[15]]);
+    gl.uniform1f(U.uS4,F4.s);gl.uniform1i(U.uK4,W.k4);
+    const wv=document.getElementById('w4v');if(wv)wv.textContent=(F4.P[3]>=0?'+':'')+F4.P[3].toFixed(3);
+  }else if(!W.menger){
+    const G=E.G,H=E.G0;
+    gl.uniform3f(U.uP,E.p[0],E.p[1],E.p[2]);gl.uniform3f(U.uC,E.c0[0],E.c0[1],E.c0[2]);
+    gl.uniformMatrix3fv(U.uG,false,[G[0],G[3],G[6],G[1],G[4],G[7],G[2],G[5],G[8]]);
+    gl.uniformMatrix3fv(U.uG0,false,[H[0],H[3],H[6],H[1],H[4],H[7],H[2],H[5],H[8]]);
+    gl.uniform1f(U.uInvS,E.invS);gl.uniform1i(U.uTile,E.stack.length===0?1:0);gl.uniform1f(U.uDr0,E.dr0);gl.uniform1f(U.uCr,E.cr);
+    gl.uniform1f(U.uBS,W.S||1);gl.uniform1f(U.uTileP,W.tile||1);
+    if(W.kr){const K=W.kr;gl.uniformMatrix3fv(U.uKR,false,[K[0],K[3],K[6],K[1],K[4],K[7],K[2],K[5],K[8]]);gl.uniform1f(U.uKS,W.ks);gl.uniform3f(U.uKO,W.ko[0],W.ko[1],W.ko[2]);}
+    if(W.delta){
+      eRef();
+      gl.uniform3fv(U['uR[0]'],REF.R);gl.uniform3fv(U['uH[0]'],REF.H);gl.uniform3fv(U['uL[0]'],REF.L);
+      gl.uniform3fv(U['uSg[0]'],REF.Sg);gl.uniform1fv(U['uMs[0]'],REF.Ms);
+      gl.uniform3f(U.uAf,REF.A[0],REF.A[1],REF.A[2]);gl.uniform1f(U.uMc,REF.Mc);
+    }
+  }
+  if(W.menger){
+    for(let i=0;i<8;i++){const L=act[i];
+      if(L){fA[i*3]=L.a[0];fA[i*3+1]=L.a[1];fA[i*3+2]=L.a[2];fS[i]=L.s;fT[i]=L.t;}}
+    gl.uniform1i(U.uN,act.length);
+    gl.uniform3fv(U['uA[0]'],fA);gl.uniform1fv(U['uS[0]'],fS);gl.uniform1fv(U['uT[0]'],fT);
+  }
+  gl.drawArrays(gl.TRIANGLES,0,3);
+  requestAnimationFrame(frame);
+}
+setWorld(0);resize();requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>
