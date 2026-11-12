@@ -190,8 +190,12 @@ uniform int uN;
 uniform vec3 uA[8];
 uniform float uS[8];
 uniform float uT[8];
+uniform mat3 uKR;
+uniform float uKS;
+uniform vec3 uKO;
 float trap;
 
+#if KIND==0
 float deMenger(vec3 q){
   float d=-1e5; trap=0.0;
   for(int m=0;m<8;m++){
@@ -209,6 +213,8 @@ float deMenger(vec3 q){
   }
   return d;
 }
+#endif
+#if KIND==1
 float deBox(vec3 q){
   vec3 z=uP+uG*q; vec3 c=uC+uG0*q;
   if(uTile==1){vec3 n=floor(z/uTileP+0.5)*uTileP; z-=n; c-=n;}
@@ -224,6 +230,8 @@ float deBox(vec3 q){
   }
   return length(z)/dr*uInvS;
 }
+#endif
+#if KIND==2
 float deApo(vec3 q){
   vec3 d=uG*q; float sc=1.0; trap=1e9;
   for(int i=0;i<14;i++){
@@ -238,6 +246,8 @@ float deApo(vec3 q){
   }
   return 0.25*abs(uAf.y+d.y)/sc*uInvS;
 }
+#endif
+#if KIND==3
 float dePK(vec3 q){
   vec3 d=uG*q; vec3 C=vec3(1.0,1.0,1.3); float sc=1.0; trap=1e9;
   for(int i=0;i<14;i++){
@@ -264,9 +274,8 @@ float dePK(vec3 q){
   float dc=uMc+(2.0*dot(uAf.xy,d.xy)+dot(d.xy,d.xy))/(rxy+ra);
   return 0.6*max(dc,abs(rxy*p.z)/length(p))/sc*uInvS;
 }
-uniform mat3 uKR;
-uniform float uKS;
-uniform vec3 uKO;
+#endif
+#if KIND==4
 float deKifs(vec3 q){
   vec3 p=uP+uG*q;
   if(uTile==1) p-=floor(p/uTileP+0.5)*uTileP;
@@ -291,6 +300,8 @@ float deKifs(vec3 q){
   }
   return (length(p)-1.0)/sc*uInvS;
 }
+#endif
+#if KIND==5
 // 4D worlds: the screen shows a 3D slice of a 4D fractal. The slice is placed by the
 // player's 4D position uP4 and orientation uM4 (its 4th column is the hidden direction).
 float de4(vec3 q){
@@ -343,6 +354,8 @@ float de4(vec3 q){
   float r=sqrt(m);
   return 0.5*r*log(r)/dz/uS4;
 }
+#endif
+#if KIND==6
 // crater valley: ground below y=0.3 with a square lattice of bowl craters. Each step either
 // inverts a bowl (lining its wall with a new cratered ground) or zooms the flat ground x3,
 // so craters of every size cover everything.
@@ -358,14 +371,23 @@ float deCrater(vec3 q){
   }
   return 0.5*(p.y-0.3)/sc*uInvS;
 }
+#endif
 float de(vec3 p){
-  if(uKind==0) return deMenger(p);
-  if(uKind==1) return deBox(p);
-  if(uKind==2) return deApo(p);
-  if(uKind==3) return dePK(p);
-  if(uKind==5) return de4(p);
-  if(uKind==6) return deCrater(p);
+#if KIND==0
+  return deMenger(p);
+#elif KIND==1
+  return deBox(p);
+#elif KIND==2
+  return deApo(p);
+#elif KIND==3
+  return dePK(p);
+#elif KIND==4
   return deKifs(p);
+#elif KIND==5
+  return de4(p);
+#else
+  return deCrater(p);
+#endif
 }
 vec3 nrm(vec3 p,float e){
   vec2 k=vec2(1.0,-1.0);
@@ -920,18 +942,30 @@ else{
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
 const fsSrc=$('fs').textContent.replace(/APOS/g,APOS.toFixed(4));
-const prog=gl.createProgram();
-gl.attachShader(prog,sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}'));
-gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fsSrc));
-gl.linkProgram(prog);
-if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){$('err').style.display='flex';console.error(gl.getProgramInfoLog(prog));}
-gl.useProgram(prog);
+const UN=['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uP4','uM4','uS4','uK4','uN','uA[0]','uS[0]','uT[0]'];
+const vsh=sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}');
+const progs={};let U={},progOK=true;
 gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
-const aL=gl.getAttribLocation(prog,"a");gl.enableVertexAttribArray(aL);gl.vertexAttribPointer(aL,2,gl.FLOAT,false,0,0);
-const U={};['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uP4','uM4','uS4','uK4','uN','uA[0]','uS[0]','uT[0]'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+function useKind(k){
+  if(!progs[k]){
+    const p=gl.createProgram();
+    gl.attachShader(p,vsh);
+    gl.attachShader(p,sh(gl.FRAGMENT_SHADER,'#define KIND '+k+'\n'+fsSrc));
+    gl.bindAttribLocation(p,0,'a');
+    gl.linkProgram(p);
+    const ok=gl.getProgramParameter(p,gl.LINK_STATUS);
+    if(!ok)console.error(gl.getProgramInfoLog(p));
+    const u={};UN.forEach(n=>u[n]=gl.getUniformLocation(p,n));
+    progs[k]={p,u,ok};
+  }
+  const P=progs[k];progOK=P.ok;
+  $('err').style.display=P.ok?'none':'flex';
+  gl.useProgram(P.p);U=P.u;
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+}
 
-let quality=0.55;
+let quality=0.45;
 function resize(){
   const dpr=Math.min(window.devicePixelRatio||1,2)*quality;
   const w=Math.max(160,Math.round(cv.clientWidth*dpr)),h=Math.max(120,Math.round(cv.clientHeight*dpr));
@@ -994,7 +1028,7 @@ function label(k){
   return '×1/3<sup>'+(-k)+'</sup>';
 }
 function setWorld(i){
-  world=i;W=WORLDS[i];kexp=W.startK||0;size=1;W.init();pos=[0,0,0];setLook(W.yaw,W.pitch||0);vy=0;fallT=0;setFly(W.fly);
+  world=i;W=WORLDS[i];useKind(W.gk);kexp=W.startK||0;size=1;W.init();pos=[0,0,0];setLook(W.yaw,W.pitch||0);vy=0;fallT=0;setFly(W.fly);
   for(let k=0;k<WORLDS.length;k++)$('w'+k).setAttribute('aria-pressed',k===i);
   $('wname').textContent=W.name;$('sz').innerHTML=label(kexp);
   $('ctl4').hidden=!W.d4;
@@ -1236,11 +1270,12 @@ function frame(now){
   const dt=Math.min(raw,50)/1000;
   step(dt);
   acc+=raw;frames++;
+  if(raw>90&&quality>0.2){quality=Math.max(0.2,quality*0.65);acc=0;frames=0;}   // a very slow frame: drop resolution at once
   if(frames>=24){
     if(W.d4){const k=Math.round(Math.log(F4.s)/Math.log(3));if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
     else if(!W.menger){const k=eK(kexp);if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
     const avg=acc/frames;acc=0;frames=0;
-    if(avg>26&&quality>0.25)quality=Math.max(0.25,quality*0.85);
+    if(avg>26&&quality>0.2)quality=Math.max(0.2,quality*0.85);
     else if(avg<15&&quality<1)quality=Math.min(1,quality*1.08);
   }
   resize();
