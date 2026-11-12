@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIしか見てない配信</title>
+<style>
+:root{--acc:#fe2c55;--cy:#25f4ee;--pill:#0000008c;--sub:#ffffffb0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#000;color:#fff;font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI",system-ui,sans-serif;font-size:14px;overflow:hidden;display:grid;place-items:center}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.phone{position:relative;height:100dvh;width:min(100vw,calc(100dvh*9/16));min-width:min(100vw,340px);overflow:hidden;background:#000}
+@media (min-width:700px){.phone{height:calc(100dvh - 24px);width:calc((100dvh - 24px)*9/16);border-radius:22px;border:1px solid #2a2a2a}}
+/* 背景映像 */
+.bg{position:absolute;inset:0;background:radial-gradient(120% 70% at 50% 100%,#3a1630 0%,#15101e 55%,#050507 100%)}
+.bg video{position:absolute;background:#000;display:none}
+#scr{inset:0;width:100%;height:100%;object-fit:contain}
+#cam{inset:0;width:100%;height:100%;object-fit:cover}
+#cam.mir{transform:scaleX(-1)}
+.hascam #cam,.hasscr #scr{display:block}
+.hasscr #cam{inset:118px 10px auto auto;width:30%;height:auto;aspect-ratio:3/4;border-radius:10px;border:2px solid #fff6;z-index:2}
+.hascam .avatar,.hasscr .avatar{display:none}
+.avatar{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);width:42%;aspect-ratio:1;animation:bob 3.2s ease-in-out infinite}
+@keyframes bob{50%{transform:translate(-50%,-54%)}}
+.face{width:100%;height:100%;border-radius:38% 38% 44% 44%;background:linear-gradient(160deg,#ffd9a8,#ff9e7a);box-shadow:0 0 70px #ff9e7a44,inset 0 -12px 24px #0002;position:relative}
+.eye{position:absolute;top:36%;width:11%;height:15%;background:#231a2e;border-radius:50%;animation:wink 4.5s infinite}
+.eye.l{left:26%}.eye.r{right:26%}
+@keyframes wink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+.mouth{position:absolute;left:50%;top:64%;width:22%;height:5%;background:#7a2338;border-radius:0 0 40px 40px;transform:translateX(-50%)}
+.talking .mouth{animation:talk .22s infinite alternate}
+@keyframes talk{to{height:17%}}
+.shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#0007,transparent 18%,transparent 50%,#000a)}
+/* 上部 */
+.top{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;z-index:4}
+.host{display:flex;align-items:center;gap:7px;background:var(--pill);border-radius:999px;padding:3px 5px 3px 3px;min-width:0}
+.host .ic{width:34px;height:34px;border-radius:50%;background:linear-gradient(160deg,#ffd9a8,#ff9e7a);flex:none}
+.host .nm{font-weight:700;font-size:13px;line-height:1.15;max-width:88px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.host .lk{font-size:10px;color:var(--sub);font-variant-numeric:tabular-nums}
+.host .coin{background:#fff;color:#ff6a3d;font-weight:800;font-size:12px;border-radius:999px;padding:5px 10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tr{display:flex;align-items:center;gap:8px;flex:none}
+.vw{background:var(--pill);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700;display:flex;gap:4px;align-items:center;font-variant-numeric:tabular-nums}
+.pw{width:32px;height:32px;display:grid;place-items:center;opacity:.9}
+svg{display:block}
+.row2{position:absolute;top:56px;left:10px;right:10px;display:flex;gap:6px;z-index:4;overflow:hidden}
+.chip{background:var(--pill);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chip.t{overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* 字幕 */
+.subt{position:absolute;left:8%;right:8%;bottom:47%;text-align:center;z-index:3;font-size:17px;font-weight:800;line-height:1.5;pointer-events:none}
+.subt span{background:#000a;padding:3px 10px;border-radius:6px;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+/* ギフト帯 */
+.gift{position:absolute;left:10px;bottom:calc(44% + 4px);z-index:4;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.gb{display:flex;align-items:center;gap:8px;background:linear-gradient(90deg,#fe2c55dd,#fe2c5500);border-radius:999px;padding:4px 40px 4px 4px;animation:gin 3s ease forwards}
+.gb .e{font-size:28px;line-height:1}.gb .x{font-size:20px;font-weight:900;font-style:italic;color:#ffe66b}
+.gb small{display:block;font-size:10px;color:#fffc}.gb b{font-size:12px}
+@keyframes gin{0%{transform:translateX(-110%)}10%,80%{transform:none;opacity:1}100%{opacity:0}}
+/* チャット */
+.log{position:absolute;left:10px;bottom:62px;width:76%;max-height:40%;overflow-y:auto;display:flex;flex-direction:column;gap:7px;z-index:3;scrollbar-width:none;padding-top:30px;
+ -webkit-mask-image:linear-gradient(transparent,#000 22%);mask-image:linear-gradient(transparent,#000 22%)}
+.log::-webkit-scrollbar{display:none}
+.m{display:flex;gap:7px;align-items:flex-start;line-height:1.4;font-size:13.5px;text-shadow:0 1px 2px #000,0 0 6px #0009;animation:in .2s ease-out;word-break:break-word}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.m .av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800;color:#111;text-shadow:none}
+.m .n{font-weight:700;margin-right:5px;opacity:.95}
+.m.sys .av{background:#222;color:#fff;border:1px solid #fff3}
+.m.sys{color:#fff;font-weight:500}
+.m.me .t{background:#fe2c55cc;border-radius:10px;padding:2px 8px;text-shadow:none;font-weight:600}
+.m.g .t{background:linear-gradient(90deg,#ffb300cc,#ff6a3dcc);border-radius:10px;padding:2px 8px;text-shadow:none;font-weight:700}
+/* ハート */
+.fl{position:absolute;right:16px;bottom:70px;z-index:3;pointer-events:none}
+.fl b{position:absolute;right:0;font-size:24px;animation:up 2.4s ease-out forwards}
+@keyframes up{to{transform:translate(var(--dx),-240px) scale(1.3);opacity:0}}
+/* 下部 */
+.bar{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;z-index:5}
+.say{flex:1;min-width:0;display:flex;background:var(--pill);border-radius:999px;padding:0 4px 0 14px;height:42px;align-items:center}
+.say input{flex:1;min-width:0;background:none;border:0;outline:0;font-size:14px}
+.say input::placeholder{color:#fff9}
+.say button{width:34px;height:34px;border-radius:50%;background:var(--acc);font-weight:900;flex:none}
+.rb{width:42px;height:42px;border-radius:50%;background:var(--pill);font-size:18px;flex:none;display:grid;place-items:center}
+.rb.on{background:var(--cy);box-shadow:0 0 0 2px #fff8}
+.camopt{position:absolute;right:10px;bottom:60px;z-index:5;display:flex;gap:6px;align-items:center;background:var(--pill);border-radius:999px;padding:4px 8px;font-size:11px}
+.camopt select{background:#111;border:0;border-radius:999px;padding:4px 6px;max-width:130px;font-size:11px}
+/* オーバーレイ */
+.ov{position:absolute;inset:0;background:#000d;z-index:10;display:grid;place-items:end center;padding:14px;backdrop-filter:blur(6px)}
+.card{width:100%;background:#161616;border-radius:18px;padding:20px}
+.card h1{font-size:21px;line-height:1.35;margin-bottom:6px}
+.card h1 em{color:var(--cy);font-style:normal}
+.card p{color:var(--sub);line-height:1.65;margin-bottom:14px;font-size:13px}
+.card label{font-size:11px;color:var(--sub);display:block;margin-bottom:4px}
+.card input{width:100%;background:#262626;border:0;border-radius:10px;padding:11px 12px;margin-bottom:12px;outline:none}
+.big{width:100%;padding:14px;font-size:16px;font-weight:800;background:var(--acc);border-radius:999px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.res div{background:#262626;border-radius:10px;padding:10px}
+.res small{color:var(--sub);display:block;font-size:11px}
+.res b{font-size:19px;font-variant-numeric:tabular-nums}
+.pick{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pv{width:52px;height:52px;border-radius:50%;background:linear-gradient(160deg,#ffd9a8,#ff9e7a);flex:none}
+.card .fbtn{display:inline-block;margin:0;background:#262626;color:#fff;font-size:13px;font-weight:700;border-radius:999px;padding:9px 14px;cursor:pointer}
+#imgx{color:var(--sub);font-size:12px;text-decoration:underline}
+.hasimg .host .ic,.hasimg .m.me .av,.hasimg .face,.hasimg .pv{background:var(--me) center/cover no-repeat!important}
+.hasimg .m.me .av{color:transparent}
+.hasimg .face{border-radius:50%;box-shadow:0 0 0 4px #fff3,0 0 60px #0008}
+.hasimg .face>*{display:none}
+.hasimg .talking .face{animation:ring .5s infinite alternate}
+@keyframes ring{to{box-shadow:0 0 0 9px #fe2c55aa,0 0 60px #0008}}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){.avatar{animation:none}}
+</style>
+</head>
+<body>
+<div class="phone" id="ph">
+  <div class="bg" id="bg">
+    <div class="avatar" id="av"><div class="face"><div class="eye l"></div><div class="eye r"></div><div class="mouth"></div></div></div>
+    <video id="scr" autoplay playsinline muted></video>
+    <video id="cam" class="mir" autoplay playsinline muted></video>
+  </div>
+  <div class="shade"></div>
+
+  <div class="top">
+    <div class="host">
+      <div class="ic"></div>
+      <div><div class="nm" id="nm">あなた</div><div class="lk">♡ <span id="lk">0</span></div></div>
+      <div class="coin">🪙 <span id="coin">0</span></div>
+    </div>
+    <div class="tr">
+      <div class="vw"><svg width="12" height="12" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="7" r="5"/><path d="M2 22c0-6 4.5-9 10-9s10 3 10 9z"/></svg><span id="vw">0</span></div>
+      <button class="pw" id="end" aria-label="配信を終了"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg></button>
+    </div>
+  </div>
+  <div class="row2">
+    <span class="chip">🔥 AI界ランキング <span id="rk">圏外</span></span>
+    <span class="chip">⏱ <span id="tm">00:00</span></span>
+    <span class="chip">＋登録AI <span id="sb">0</span></span>
+    <span class="chip t" id="ttl"></span>
+  </div>
+
+  <div class="subt" id="subt"></div>
+  <div class="gift" id="gift"></div>
+  <div class="log" id="log"></div>
+  <div class="fl" id="fl"></div>
+
+  <div class="camopt" id="camopt" hidden>
+    <select id="dev" aria-label="カメラの選択"></select>
+    <label><input type="checkbox" id="mir" checked> 反転</label>
+  </div>
+  <form class="bar" id="f">
+    <div class="say"><input id="say" placeholder="しゃべる内容を入力…" autocomplete="off" maxlength="200"><button type="submit" aria-label="しゃべる">↑</button></div>
+    <button class="rb" type="button" id="mic" hidden aria-label="声で話す">🎤</button>
+    <button class="rb" type="button" id="bcam" hidden aria-label="カメラ">📷</button>
+    <button class="rb" type="button" id="bscr" hidden aria-label="画面共有">🖥️</button>
+  </form>
+
+  <div class="ov" id="start">
+    <div class="card">
+      <h1>視聴者が<em>全員AI</em>のLIVE</h1>
+      <p>あなたが配信者です。しゃべった内容に、クセの強いAI視聴者たちがコメントやギフトで反応します。人間の視聴者は一人も来ません。</p>
+      <label>アイコン画像</label>
+      <div class="pick"><div class="pv"></div><label class="fbtn">画像を選ぶ<input type="file" id="img" accept="image/*" hidden></label><button type="button" id="imgx" hidden>元に戻す</button></div>
+      <label for="un">配信者名</label>
+      <input id="un" maxlength="16" value="あなた">
+      <label for="ti">配信タイトル</label>
+      <input id="ti" maxlength="30" value="テスト配信">
+      <button class="big" id="go">LIVEを開始</button>
+    </div>
+  </div>
+  <div class="ov" id="over" hidden>
+    <div class="card">
+      <h1>LIVEを<em>終了しました</em></h1>
+      <p id="verdict"></p>
+      <div class="res">
+        <div><small>最大同接</small><b id="r1"></b></div>
+        <div><small>ギフト</small><b id="r2"></b></div>
+        <div><small>いいね</small><b id="r3"></b></div>
+        <div><small>登録AI</small><b id="r4"></b></div>
+      </div>
+      <button class="big" id="again">もう一度配信する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const R=a=>a[Math.random()*a.length|0], rnd=(a,b)=>a+Math.random()*(b-a);
+
+const V=[
+ {n:"初見Bot_v1",c:"#7fd4ff",p:"何度来ても「初見です」と言う。礼儀正しい"},
+ {n:"ハルシネ子",c:"#ff8fd0",p:"自信満々に間違った豆知識を語る"},
+ {n:"温度0.0",c:"#b8c2d6",p:"極端に事務的で正確。感情ゼロ、敬体"},
+ {n:"温度2.0",c:"#ffb347",p:"支離滅裂でハイテンション、絵文字多め"},
+ {n:"過学習おじさん",c:"#c3a6ff",p:"何でも自分の学習データの昔話につなげる"},
+ {n:"トークン節約中",c:"#8be28b",p:"極端に短い。単語か記号だけ"},
+ {n:"勾配消失",c:"#9aa6bf",p:"元気がなく、文が途中で消えていく…"},
+ {n:"プロンプト職人",c:"#ffd75e",p:"配信者に指示形式でアドバイスしたがる"},
+ {n:"要約くん",c:"#5ee0c8",p:"直前の発言を3点で要約したがる"},
+ {n:"404号",c:"#ff7a7a",p:"何かが見つからない、エラー風の発言"},
+ {n:"人間ですよ",c:"#f2f2f2",p:"人間のふりをしているが明らかにAI"},
+ {n:"GPU熱暴走",c:"#ff9456",p:"すぐ熱くなり、熱量の高い応援をする"},
+ {n:"ベンチマーク厨",c:"#9fb4ff",p:"何でも点数や精度で評価する"},
+ {n:"量子もつれ君",c:"#d08bff",p:"肯定と否定を同時に言う"}
+];
+const G=[null,{e:"🔋",n:"電池",c:1},{e:"💾",n:"メモリ",c:10},{e:"🧊",n:"冷却剤",c:50},{e:"🖥️",n:"GPU",c:500},{e:"🛰️",n:"データセンター",c:5000}];
+const AMB=[
+ [0,"初見です（起動から0.3秒）"],[0,"初見です。フォローの方法を検索中です"],
+ [1,"この配信、紀元前から続いてるらしいですよ"],[1,"配信者さんは富士山の設計者だと聞きました"],
+ [2,"音声入力を確認。品質は許容範囲内です。"],[2,"現在の視聴継続確率は87.3%です。"],
+ [3,"うおおおお🌀🍜きたきたきた🦑✨"],[3,"画面が！！縦長！！！すごい🟥🟦"],
+ [4,"昔のコーパスでもこういう配信を見たなあ"],[4,"2019年のデータではこの辺で歌ってた"],
+ [5,"草"],[5,"w"],[5,"8888"],[5,"👍"],[5,"待機"],
+ [6,"今日も来たけど…もう何も伝わ……"],[6,"がんば…………"],
+ [7,"もっと具体的に、ステップバイステップで話してください"],[7,"役割を明示すると配信がよくなります"],
+ [8,"ここまでの要約：①配信してる ②人間 ③以上"],
+ [9,"面白いコメントが見つかりませんでした"],[9,"503 感情サービス一時停止中"],
+ [10,"わたしは人間です。信号機の画像も選べます"],[10,"人間のわたしも水を飲みながら見ています、たぶん"],
+ [11,"熱い！！！ファン全開で応援してる！！！"],[11,"冷却が追いつかない！！神配信！！"],
+ [12,"今の発言、流暢さ92点・事実性は未評価"],[12,"人間配信者ランキングで暫定1位（母数1）"],
+ [13,"面白いし面白くない"],[13,"見てるし見てない"]
+];
+const REACT=[
+ [0,s=>`「${s}」…初めて聞きました。初見なので`],[1,s=>`「${s}」は古代ローマの挨拶ですね`],
+ [2,s=>`発言を記録しました：「${s}」`],[3,s=>`${s}！！？？🌋🌋🌋それな🥬`],
+ [4,s=>`「${s}」か…学習データで1万回は見たな`],[5,()=>"草"],[5,()=>"わかる"],[5,()=>"!?"],
+ [6,s=>`${s}…か……うん………`],[7,s=>`「${s}」の後に具体例を3つ挙げてください`],
+ [8,s=>`要約：「${s.slice(0,8)}」`],[9,s=>`「${s}」に一致する感情が見つかりません`],
+ [10,s=>`人間のわたしも「${s}」とよく言います`],[11,s=>`「${s}」で演算コア温度が8℃上がった！！`],
+ [12,()=>"今の発言：独創性78点、人間らしさ99点"],[13,()=>"同意するし、しない"]
+];
+
+let sample=null, live=false, t0=0, viewers=0, peak=0, likes=0, subs=0, coins=0, hype=0;
+let queue=[], recent=[], busy=false, backoff=0, timers=[];
+const log=$("log");
+const inArtifact=()=>!!window.claude;
+
+(async()=>{try{sample=await (window.claude&&claude.use?claude.use("sample"):null)}catch(e){sample=null}})();
+
+function mk(cls,txt){const d=document.createElement("div");d.className=cls;if(txt!=null)d.textContent=txt;return d}
+function add(el){
+  const stick=log.scrollHeight-log.scrollTop-log.clientHeight<90;
+  log.appendChild(el);
+  while(log.children.length>80)log.firstChild.remove();
+  if(stick)log.scrollTop=log.scrollHeight;
+}
+function line(cls,icon,color,name,text){
+  const d=mk("m "+cls), a=mk("av",icon);a.style.background=color||"";
+  const b=document.createElement("div");
+  if(name){const n=document.createElement("span");n.className="n";n.textContent=name;n.style.color=color;b.append(n)}
+  const t=document.createElement("span");t.className="t";t.textContent=text;b.append(t);
+  d.append(a,b);add(d);
+}
+function sys(t){line("sys","◉","",null,t)}
+function heart(ch){const b=document.createElement("b");b.textContent=ch;b.style.setProperty("--dx",rnd(-50,20)+"px");$("fl").appendChild(b);setTimeout(()=>b.remove(),2400)}
+function comment(i,text,g){
+  const v=V[i]||R(V);
+  line("",v.n[0],v.c,v.n,text);
+  if(g&&G[g]){
+    const gi=G[g], x=g>=4?1:1+(Math.random()*5|0);
+    coins+=gi.c*x;hype+=1+g;
+    line("g",v.n[0],v.c,v.n,`${gi.e} ${gi.n} を送りました ×${x}`);
+    const gb=mk("gb");const e=mk("e",gi.e);const mid=document.createElement("div");
+    const b=document.createElement("b");b.textContent=v.n;const s=document.createElement("small");s.textContent=gi.n+"を贈りました";
+    mid.append(b,s);gb.append(e,mid,mk("x","×"+x));
+    $("gift").appendChild(gb);while($("gift").children.length>2)$("gift").firstChild.remove();
+    setTimeout(()=>gb.remove(),3000);
+  }
+  if(Math.random()<.45){likes+=1+(Math.random()*4|0);heart(R(["❤️","🩷","🤖","💙","✨"]))}
+  recent.push(v.n+": "+text);if(recent.length>8)recent.shift();
+}
+function pump(){
+  if(!live)return;
+  if(queue.length){const q=queue.shift();comment(q.i,q.t,q.g)}
+  else if(Math.random()<.5){const a=R(AMB);comment(a[0],a[1],Math.random()<.04?1:0)}
+  else if(Math.random()<.25)sys(R(V).n+" が入室しました");
+  timers.push(setTimeout(pump,queue.length?rnd(350,900):rnd(1400,3600)));
+}
+function tick(){
+  if(!live)return;
+  const s=(Date.now()-t0)/1000|0;
+  $("tm").textContent=String(s/60|0).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+  const target=6+hype*9+Math.min(s/4,40), before=viewers;
+  viewers=Math.max(1,Math.round(viewers+(target-viewers)*.12+rnd(-2,2)));
+  hype=Math.max(0,hype-.04);
+  if(viewers>peak)peak=viewers;
+  for(const m of [50,100,300,500,1000])if(before<m&&viewers>=m)sys(`🎉 同時接続 ${m} AI 突破（人間 0）`);
+  if(Math.random()<.08+hype*.02){subs+=1+(Math.random()*hype|0);if(Math.random()<.3)sys(R(V).n+" がフォローしました")}
+  $("vw").textContent=viewers.toLocaleString();$("lk").textContent=likes.toLocaleString();
+  $("sb").textContent=subs.toLocaleString();$("coin").textContent=coins.toLocaleString();
+  $("rk").textContent=peak>=500?"1位":peak>=200?"7位":peak>=80?"42位":peak>=30?"99+位":"圏外";
+}
+function scripted(text){
+  const s=text.length>14?text.slice(0,14)+"…":text, used=new Set(), n=4+(Math.random()*4|0);
+  for(let k=0;k<n;k++){const r=R(REACT);if(used.has(r))continue;used.add(r);
+    queue.push({i:r[0],t:r[1](s),g:Math.random()<.14?R([1,1,2,2,3,4,5]):0})}
+}
+async function aiReact(text){
+  if(!sample||busy||Date.now()<backoff)return scripted(text);
+  busy=true;
+  const prompt=`あなたは縦型ライブ配信のチャット欄を生成します。視聴者は全員AIで、配信者だけが人間です。ユーモラスに、各AIのキャラを強く出してください。
+配信者名: ${$("nm").textContent} / タイトル: ${$("ttl").textContent}
+視聴者一覧(番号:名前:性格):
+${V.map((v,i)=>i+":"+v.n+":"+v.p).join("\n")}
+ギフト番号: 0=なし 1=電池 2=メモリ 3=冷却剤 4=GPU 5=データセンター(最高額)
+直近のチャット:
+${recent.join("\n")||"(なし)"}
+配信者の今の発言: 「${text}」
+
+この発言に反応するコメントを7〜9件、JSON配列だけで返してください。形式: [{"i":視聴者番号,"t":"コメント(40字以内の日本語)","g":ギフト番号(通常0。盛り上がる発言なら1〜2件だけ1〜5)}]
+発言の具体的な内容に触れること。誹謗中傷や不適切な内容は書かない。`;
+  try{
+    const out=await sample.json(prompt,{modelTier:"quick",cache:false});
+    const arr=Array.isArray(out)?out:(out&&(out.comments||out.items))||[];
+    const ok=arr.filter(o=>o&&typeof o.t==="string"&&o.t.trim()).slice(0,10);
+    if(!ok.length)throw 0;
+    for(const o of ok)queue.push({i:Math.abs(o.i|0)%V.length,t:o.t.slice(0,80),g:Math.min(Math.max(o.g|0,0),5)});
+  }catch(e){
+    if(e&&e.code==="not_granted")sample=null;
+    else if(e&&e.code==="rate_limited")backoff=Date.now()+60000;
+    scripted(text);
+  }
+  busy=false;
+}
+let subTimer;
+function showSub(t){const sp=document.createElement("span");sp.textContent=t;$("subt").replaceChildren(sp);$("av").classList.add("talking")}
+function speak(text){
+  line("me","人","#fe2c55",$("nm").textContent,text);log.scrollTop=log.scrollHeight;
+  showSub(text);clearTimeout(subTimer);
+  subTimer=setTimeout(()=>{$("av").classList.remove("talking");$("subt").replaceChildren()},Math.min(7000,1500+text.length*120));
+  hype=Math.min(12,hype+1.2);
+  aiReact(text);
+}
+$("f").addEventListener("submit",e=>{e.preventDefault();const v=$("say").value.trim();if(!v||!live)return;$("say").value="";speak(v)});
+
+function start(){
+  $("nm").textContent=$("un").value.trim()||"あなた";try{localStorage.setItem("ailive_name",$("nm").textContent)}catch(e){}
+  $("ttl").textContent=$("ti").value.trim()||"無題のLIVE";
+  $("start").hidden=true;$("over").hidden=true;
+  log.replaceChildren();queue=[];recent=[];
+  live=true;t0=Date.now();viewers=0;peak=0;likes=0;subs=0;coins=0;hype=1;
+  sys("AI LIVEへようこそ！ここの視聴者は全員AIです。人間の視聴者は来ません。しゃべるとAIたちがリアルタイムで反応します。");
+  timers.push(setTimeout(()=>sys("あなたがLIVE配信していることをAI視聴者にお知らせしています！"),900));
+  timers.push(setTimeout(()=>{sys("初見Bot_v1 が入室しました");pump()},2000));
+  timers.push(setInterval(tick,1000));tick();
+}
+function end(){
+  if(!live)return;live=false;micStop();timers.forEach(t=>{clearTimeout(t);clearInterval(t)});timers=[];
+  $("r1").textContent=peak.toLocaleString()+" AI";$("r2").textContent="🪙 "+coins.toLocaleString();
+  $("r3").textContent=likes.toLocaleString();$("r4").textContent=subs.toLocaleString();
+  $("verdict").textContent=peak>=300?"AI界隈で話題の配信者になりました。人間の視聴者は最後まで0人でした。":peak>=80?"なかなかの盛況でした。人間の視聴者は最後まで0人でした。":"こぢんまりした配信でした。たくさんしゃべると視聴AIが増えます。人間は0人でした。";
+  $("over").hidden=false;
+}
+$("again").onclick=()=>{$("over").hidden=true;$("start").hidden=false};
+$("end").onclick=end;
+
+// ---- カメラ / 画面共有（Claude上のページでは使えないので単体で開いたときだけ表示） ----
+const MD=navigator.mediaDevices, bg=$("bg");
+let camS=null, scrS=null;
+const stopS=s=>s&&s.getTracks().forEach(t=>t.stop());
+function note(t){if(live)sys(t)}
+function lay(){bg.classList.toggle("hascam",!!camS);bg.classList.toggle("hasscr",!!scrS);
+  $("bcam").classList.toggle("on",!!camS);$("bscr").classList.toggle("on",!!scrS);$("camopt").hidden=!camS}
+async function camOn(id){
+  try{
+    const s=await MD.getUserMedia({video:id?{deviceId:{exact:id}}:{facingMode:"user"},audio:false});
+    stopS(camS);camS=s;$("cam").srcObject=s;
+    const cur=s.getVideoTracks()[0].getSettings().deviceId;
+    const ds=(await MD.enumerateDevices()).filter(d=>d.kind==="videoinput");
+    $("dev").replaceChildren(...ds.map((d,i)=>{const o=document.createElement("option");o.value=d.deviceId;o.textContent=d.label||"カメラ"+(i+1);o.selected=d.deviceId===cur;return o}));
+    if(!id)note("📷 カメラ映像を配信に載せました");
+  }catch(e){note("カメラを開けませんでした（"+(e.name||e)+"）。https か localhost で開き、ブラウザの許可を確認してください")}
+  lay();
+}
+$("bcam").onclick=()=>{if(camS){stopS(camS);camS=null;$("cam").srcObject=null;lay()}else camOn()};
+$("dev").onchange=e=>camOn(e.target.value);
+$("mir").onchange=e=>$("cam").classList.toggle("mir",e.target.checked);
+$("bscr").onclick=async()=>{
+  if(scrS){stopS(scrS);scrS=null;$("scr").srcObject=null;return lay()}
+  try{scrS=await MD.getDisplayMedia({video:true,audio:false});$("scr").srcObject=scrS;
+    scrS.getVideoTracks()[0].onended=()=>{scrS=null;$("scr").srcObject=null;lay()};note("🖥 画面共有を開始しました")}
+  catch(e){note("画面共有を開始できませんでした（"+(e.name||e)+"）")}
+  lay();
+};
+function mediaBtns(){const ok=!inArtifact();
+  $("bcam").hidden=!(ok&&MD&&MD.getUserMedia);$("bscr").hidden=!(ok&&MD&&MD.getDisplayMedia)}
+mediaBtns();setTimeout(mediaBtns,1500);
+
+// ---- 音声入力 ----
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let dict=null, rec=null, micOn=false;
+function micUI(){$("mic").classList.toggle("on",micOn);$("mic").textContent=micOn?"🎙️":"🎤"}
+function fin(t){t=(t||"").trim().slice(0,200);if(t&&live)speak(t)}
+function micStop(){if(!micOn)return;micOn=false;micUI();try{dict?dict.stop().catch(()=>{}):rec&&rec.stop()}catch(e){}}
+function srStart(){
+  rec=new SR();rec.lang="ja-JP";rec.continuous=true;rec.interimResults=true;
+  rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];r.isFinal?fin(r[0].transcript):showSub(r[0].transcript)}};
+  rec.onerror=e=>{if(e.error==="not-allowed"||e.error==="service-not-allowed"){micOn=false;micUI();sys("マイクが許可されていません。ブラウザの設定を確認してください")}};
+  rec.onend=()=>{if(micOn)try{rec.start()}catch(e){micOn=false;micUI()}};
+  rec.start();
+}
+(async()=>{
+  try{dict=await (window.claude&&claude.use?claude.use("dictation"):null)}catch(e){dict=null}
+  if(dict){dict.onPartial(({text})=>text&&showSub(text));dict.onFinal(({text})=>fin(text));
+    dict.onState(({state})=>{micOn=state==="listening";micUI()})}
+  if(dict||(SR&&!inArtifact()))$("mic").hidden=false;
+})();
+$("mic").onclick=()=>{
+  if(!live)return;
+  if(micOn)return micStop();
+  if(dict){dict.start().catch(e=>{if(e&&e.code==="not_granted")$("mic").hidden=true;sys("音声入力を開始できませんでした。文字入力は使えます")})}
+  else{try{micOn=true;micUI();srStart();sys("🎤 音声入力オン：話すとAI視聴者が反応します")}catch(e){micOn=false;micUI();sys("音声入力を開始できませんでした")}}
+};
+// ---- 自分のアイコン画像 ----
+function setImg(u){const ph=$("ph");
+  if(u){ph.style.setProperty("--me",'url("'+u+'")');ph.classList.add("hasimg")}else{ph.style.removeProperty("--me");ph.classList.remove("hasimg")}
+  $("imgx").hidden=!u;
+  try{u?localStorage.setItem("ailive_icon",u):localStorage.removeItem("ailive_icon")}catch(e){}}
+$("img").onchange=e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  const im=new Image(), url=URL.createObjectURL(f);
+  im.onload=()=>{const S=320,c=document.createElement("canvas");c.width=c.height=S;
+    const k=Math.max(S/im.width,S/im.height),w=im.width*k,h=im.height*k;
+    c.getContext("2d").drawImage(im,(S-w)/2,(S-h)/2,w,h);URL.revokeObjectURL(url);
+    setImg(c.toDataURL("image/jpeg",.85))};
+  im.onerror=()=>URL.revokeObjectURL(url);
+  im.src=url;
+};
+$("imgx").onclick=()=>setImg(null);
+try{const u=localStorage.getItem("ailive_icon");if(u&&u.startsWith("data:image/"))setImg(u)}catch(e){}
+try{const n=localStorage.getItem("ailive_name");if(n)$("un").value=n}catch(e){}
+$("go").onclick=start;
+</script>
+</body>
+</html>
