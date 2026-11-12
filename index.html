@@ -25,6 +25,9 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;image-renderi
 .hud{position:fixed;display:flex;gap:8px;z-index:2}
 .top-left{top:calc(10px + env(safe-area-inset-top));left:calc(12px + env(safe-area-inset-left));flex-direction:column;align-items:flex-start}
 .top-right{top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));flex-direction:column;align-items:flex-end}
+.bottom-left4{bottom:calc(170px + env(safe-area-inset-bottom));left:calc(14px + env(safe-area-inset-left));flex-direction:column;align-items:flex-start}
+.bottom-left4[hidden]{display:none}
+@media (hover:hover) and (pointer:fine){.bottom-left4{bottom:calc(18px + env(safe-area-inset-bottom))}}
 .bottom-right{bottom:calc(18px + env(safe-area-inset-bottom));right:calc(14px + env(safe-area-inset-right));flex-direction:column;align-items:flex-end;gap:10px}
 .row{display:flex;gap:6px}
 .top-left .row{flex-wrap:wrap;max-width:calc(100vw - 150px)}
@@ -33,6 +36,7 @@ button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid va
   padding:8px 10px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button[aria-pressed="true"]{background:var(--accent);color:#1b1205;border-color:var(--accent)}
+button.b4d{border-color:rgba(120,220,255,.55)}
 button.big{width:68px;height:68px;border-radius:50%;font-size:13px;padding:0}
 button.mid{min-width:52px;height:44px}
 .stat{font-size:12px;color:var(--ink-dim);background:var(--panel);border-radius:8px;padding:5px 9px;font-variant-numeric:tabular-nums}
@@ -59,6 +63,10 @@ button.mid{min-width:52px;height:44px}
 #panel legend{padding:0 4px;color:var(--ink)}
 #panel input[type=radio],#panel input[type=checkbox]{accent-color:var(--accent)}
 #panel .pnote{margin:4px 0 0;font-size:11.5px;color:var(--ink-dim);line-height:1.5}
+#showui{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(12px + env(safe-area-inset-right));z-index:4;opacity:.28;font-size:12px;padding:7px 10px}
+#showui:hover,#showui:focus-visible{opacity:.9}
+#showui[hidden]{display:none}
+body.noui .hud,body.noui #stick,body.noui #hint,body.noui #lockhint,body.noui #toast{display:none!important}
 #err{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;text-align:center;z-index:9;background:var(--bg)}
 @media (hover:hover) and (pointer:fine){#stick{display:none}}
 @media (prefers-reduced-motion:reduce){#hint,#toast{transition:none}}
@@ -81,6 +89,10 @@ button.mid{min-width:52px;height:44px}
     <button id="w9" aria-pressed="false">貝殻</button>
     <button id="w10" aria-pressed="false">花</button>
     <button id="w11" aria-pressed="false">岩</button>
+    <button id="w12" aria-pressed="false" class="b4d">超立方体</button>
+    <button id="w13" aria-pressed="false" class="b4d">4D箱</button>
+    <button id="w14" aria-pressed="false" class="b4d">四元数</button>
+    <button id="w15" aria-pressed="false">クレーター</button>
   </div>
   <div class="stat" id="wname">メンガー回廊</div>
 </div>
@@ -91,7 +103,22 @@ button.mid{min-width:52px;height:44px}
     <button class="mid" id="smaller" aria-label="小さくなる">縮む</button>
     <button class="mid" id="bigger" aria-label="大きくなる">育つ</button>
   </div>
-  <button class="mid" id="opt" aria-expanded="false" aria-controls="panel">設定</button>
+  <div class="row">
+    <button class="mid" id="hideui" aria-label="画面のボタンや表示を隠す">UIを隠す</button>
+    <button class="mid" id="opt" aria-expanded="false" aria-controls="panel">設定</button>
+  </div>
+</div>
+
+<div class="hud bottom-left4" id="ctl4" hidden>
+  <div class="stat">4次元目の位置 <b id="w4v">0</b></div>
+  <div class="row">
+    <button class="mid hold" id="w4m" aria-label="4次元目のマイナス方向へ移動">4D −</button>
+    <button class="mid hold" id="w4p" aria-label="4次元目のプラス方向へ移動">4D ＋</button>
+  </div>
+  <div class="row">
+    <button class="mid hold" id="r4m" aria-label="4次元の方向へ左に回転">⟲ 4D回転</button>
+    <button class="mid hold" id="r4p" aria-label="4次元の方向へ右に回転">4D回転 ⟳</button>
+  </div>
 </div>
 
 <div class="hud bottom-right">
@@ -123,6 +150,7 @@ button.mid{min-width:52px;height:44px}
   <button id="sReset">初期設定に戻す</button>
   <p class="pnote">O キーでも開閉できます。設定はこのブラウザに保存されます。</p>
 </div>
+<button id="showui" hidden aria-label="UIを表示する">UIを表示</button>
 <div id="lockhint">カーソル固定中 ・ Escで解除</div>
 <div id="err">この端末ではWebGLが使えないため、表示できません。別のブラウザで開いてみてください。</div>
 
@@ -154,6 +182,10 @@ uniform vec3 uSg[14];
 uniform float uMs[14];
 uniform vec3 uAf;
 uniform float uMc;
+uniform vec4 uP4;
+uniform mat4 uM4;
+uniform float uS4;
+uniform int uK4;
 uniform int uN;
 uniform vec3 uA[8];
 uniform float uS[8];
@@ -259,11 +291,80 @@ float deKifs(vec3 q){
   }
   return (length(p)-1.0)/sc*uInvS;
 }
+// 4D worlds: the screen shows a 3D slice of a 4D fractal. The slice is placed by the
+// player's 4D position uP4 and orientation uM4 (its 4th column is the hidden direction).
+float de4(vec3 q){
+  vec4 p=uP4+uS4*(uM4*vec4(q,0.0));
+  trap=1e9;
+  if(uK4==0){
+    p-=2.0*floor(p*0.5+0.5);
+    float s=1.0;
+    for(int i=0;i<16;i++){
+      if(i>=uIter) break;
+      p=abs(p);
+      if(p.x<p.y) p.xy=p.yx;
+      if(p.x<p.z) p.xz=p.zx;
+      if(p.x<p.w) p.xw=p.wx;
+      if(p.y<p.z) p.yz=p.zy;
+      if(p.y<p.w) p.yw=p.wy;
+      if(p.z<p.w) p.zw=p.wz;
+      p.xy=3.0*p.xy-2.0; p.zw=3.0*p.zw;
+      if(p.z>1.0) p.z-=2.0;
+      if(p.w>1.0) p.w-=2.0;
+      s*=3.0; trap=min(trap,dot(p,p));
+    }
+    vec4 d=abs(p)-1.0;
+    return (length(max(d,0.0))+min(max(max(d.x,d.y),max(d.z,d.w)),0.0))/s/uS4;
+  }
+  if(uK4==1){
+    p-=10.0*floor(p*0.1+0.5);
+    vec4 z=p; float dr=1.0;
+    for(int i=0;i<20;i++){
+      if(i>=uIter) break;
+      z=clamp(z,-1.0,1.0)*2.0-z;
+      float r2=dot(z,z);
+      trap=min(trap,r2);
+      if(r2<0.25){z*=4.0;dr*=4.0;}
+      else if(r2<1.0){z/=r2;dr/=r2;}
+      z=z*2.2+p; dr=dr*2.2+1.0;
+    }
+    return length(z)/dr/uS4;
+  }
+  p.xyz-=4.0*floor(p.xyz*0.25+0.5);
+  vec4 c=vec4(-0.2,0.6,0.2,0.2);
+  float m=dot(p,p), dz=1.0;
+  for(int i=0;i<20;i++){
+    if(i>=uIter) break;
+    dz=2.0*sqrt(m)*dz;
+    p=vec4(p.x*p.x-dot(p.yzw,p.yzw),2.0*p.x*p.yzw)+c;
+    m=dot(p,p); trap=min(trap,m);
+    if(m>256.0) break;
+  }
+  float r=sqrt(m);
+  return 0.5*r*log(r)/dz/uS4;
+}
+// crater valley: ground below y=0.3 with a square lattice of bowl craters. Each step either
+// inverts a bowl (lining its wall with a new cratered ground) or zooms the flat ground x3,
+// so craters of every size cover everything.
+float deCrater(vec3 q){
+  vec3 p=uP+uG*q;
+  float sc=1.0; trap=1.0;
+  for(int i=0;i<24;i++){
+    if(i>=uIter) break;
+    p.xz-=2.0*floor(p.xz*0.5+0.5);
+    float r2=dot(p,p);
+    if(r2<0.9025){float k=0.9025/r2; p*=k; sc*=k; trap=min(trap,r2/0.9025);}
+    else{p.xz*=3.0; p.y=(p.y-0.3)*3.0+0.3; sc*=3.0;}
+  }
+  return 0.5*(p.y-0.3)/sc*uInvS;
+}
 float de(vec3 p){
   if(uKind==0) return deMenger(p);
   if(uKind==1) return deBox(p);
   if(uKind==2) return deApo(p);
   if(uKind==3) return dePK(p);
+  if(uKind==5) return de4(p);
+  if(uKind==6) return deCrater(p);
   return deKifs(p);
 }
 vec3 nrm(vec3 p,float e){
@@ -284,6 +385,10 @@ vec3 sky(vec3 rd){
   if(uWorld==8) return mix(vec3(0.96,0.80,0.62),vec3(0.30,0.46,0.72),pow(h,0.6));
   if(uWorld==9) return mix(vec3(0.05,0.22,0.26),vec3(0.01,0.04,0.10),h);
   if(uWorld==10) return mix(vec3(0.34,0.22,0.42),vec3(0.05,0.03,0.12),pow(h,0.7));
+  if(uWorld==12) return mix(vec3(0.92,0.94,0.98),vec3(0.55,0.62,0.78),pow(h,0.8));
+  if(uWorld==13) return mix(vec3(0.10,0.02,0.06),vec3(0.01,0.0,0.02),h);
+  if(uWorld==14) return mix(vec3(0.02,0.10,0.08),vec3(0.0,0.02,0.03),h);
+  if(uWorld==15) return mix(vec3(0.86,0.76,0.62),vec3(0.42,0.36,0.40),pow(h,0.8));
   return mix(vec3(0.05,0.05,0.07),vec3(0.0,0.0,0.015),h);
 }
 void main(){
@@ -337,8 +442,17 @@ void main(){
       base=pal(sqrt(tr)*0.45,vec3(0.72,0.74,0.76),vec3(0.26,0.22,0.24),vec3(1.0,1.0,1.0),vec3(0.95,0.30,0.60));
     }else if(uWorld==10){
       base=pal(sqrt(tr)*0.30,vec3(0.62,0.44,0.46),vec3(0.38,0.34,0.30),vec3(1.0,0.9,0.7),vec3(0.88,0.12,0.40));
-    }else{
+    }else if(uWorld==11){
       base=mix(vec3(0.34,0.31,0.29),vec3(0.62,0.52,0.42),smoothstep(0.2,1.6,sqrt(tr)));
+    }else if(uWorld==12){
+      vec3 q4=uP4.xyz+uS4*(uM4*vec4(p,0.0)).xyz;
+      base=pal(fract(dot(floor(q4*1.5),vec3(0.13,0.21,0.17)))*0.6+sqrt(tr)*0.05,vec3(0.80,0.80,0.84),vec3(0.16,0.14,0.18),vec3(1.0),vec3(0.60,0.66,0.76));
+    }else if(uWorld==13){
+      base=pal(sqrt(tr)*0.5,vec3(0.62,0.36,0.36),vec3(0.38,0.30,0.30),vec3(1.0,0.8,0.7),vec3(0.0,0.15,0.30));
+    }else if(uWorld==15){
+      base=mix(vec3(0.42,0.28,0.34),vec3(0.95,0.86,0.64),smoothstep(0.35,0.98,tr));
+    }else{
+      base=pal(log(1.0+tr)*0.35,vec3(0.40,0.62,0.56),vec3(0.36,0.32,0.36),vec3(1.0,1.0,1.0),vec3(0.20,0.55,0.85));
     }
     vec3 L=normalize(vec3(0.45,0.75,0.35));
     float dif=clamp(dot(n,L),0.0,1.0);
@@ -648,6 +762,10 @@ function dePK(X,Y,Z){
 // Automatic body size: scale smoothly about the player so the nearest wall stays about
 // W.dT body-units away. Returns the change in whole ×3 steps (Menger) for the label.
 function autoScale(f){
+  if(W.d4){
+    const ns=Math.min(Math.pow(3,W.maxK),Math.max(W.smin,F4.s*f));
+    F4.s=ns;iters=f4iters();return 0;
+  }
   if(W.menger){
     let dk=0;mZoom*=f;
     while(mZoom<0.5774){mShrink();mZoom*=3;dk--;}
@@ -688,8 +806,105 @@ const WORLDS=[
   {name:'岩の小惑星 ／ ひび割れ続ける岩',de:deKifs,gk:4,rule:2,tile:6,far:45,fly:true,yaw:-0.694,pitch:-0.39,maxK:1,dT:0.5,
    iter0:15,capMax:28,pmax:6,g:1.6,sLo:sLoOf(1.6,15,21),ks:1.6,ko:[1.0,0.6,0.9],kr:rotM(0.7,0.3,0.5),ops:KOPS[2],wrap:wrapAll([6,6,6]),start:[1.6,1.05,1.9]}
 ];
+// ---- 4D worlds ----
+// The player's 3D space is a slice through a 4D fractal: world4 = P + s*M*(x,y,z,0).
+// Column 3 of M is the hidden 4th direction; moving along it, or turning into it,
+// changes which slice you stand in.
+let F4={P:[0,0,0,0],M:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],s:1};
+function f4pt(x,y,z){const M=F4.M,P=F4.P,s=F4.s;
+  return [P[0]+s*(M[0]*x+M[1]*y+M[2]*z),P[1]+s*(M[4]*x+M[5]*y+M[6]*z),P[2]+s*(M[8]*x+M[9]*y+M[10]*z),P[3]+s*(M[12]*x+M[13]*y+M[14]*z)];}
+function f4move(x,y,z,w){const M=F4.M,s=F4.s;
+  for(let i=0;i<4;i++)F4.P[i]+=s*(M[i*4]*x+M[i*4+1]*y+M[i*4+2]*z+M[i*4+3]*w);
+  W.wrap4(F4.P);}
+// rotate in the plane spanned by a local 3D direction v and the hidden 4th axis
+function f4rot(v,ang){
+  const M=F4.M,c=Math.cos(ang),sn=Math.sin(ang);
+  for(let i=0;i<4;i++){
+    const a=M[i*4]*v[0]+M[i*4+1]*v[1]+M[i*4+2]*v[2],b=M[i*4+3];
+    const a2=a*c+b*sn,b2=-a*sn+b*c;
+    for(let j=0;j<3;j++)M[i*4+j]+=(a2-a)*v[j];
+    M[i*4+3]=b2;
+  }
+  // re-orthonormalize (Gram-Schmidt on columns)
+  for(let j=0;j<4;j++){
+    for(let k=0;k<j;k++){let d=0;for(let i=0;i<4;i++)d+=M[i*4+j]*M[i*4+k];for(let i=0;i<4;i++)M[i*4+j]-=d*M[i*4+k];}
+    let l=0;for(let i=0;i<4;i++)l+=M[i*4+j]*M[i*4+j];l=Math.sqrt(l);for(let i=0;i<4;i++)M[i*4+j]/=l;
+  }
+}
+function f4iters(){return Math.min(W.capMax,W.iter0+Math.max(0,Math.ceil(Math.log(1/F4.s)/Math.log(W.g)-1e-9)));}
+function deM4(x,y,z,w,it){
+  x-=2*Math.round(x/2);y-=2*Math.round(y/2);z-=2*Math.round(z/2);w-=2*Math.round(w/2);
+  let s=1;const a=[0,0,0,0];
+  for(let i=0;i<it;i++){
+    a[0]=Math.abs(x);a[1]=Math.abs(y);a[2]=Math.abs(z);a[3]=Math.abs(w);a.sort((p,q)=>q-p);
+    x=3*a[0]-2;y=3*a[1]-2;z=3*a[2];w=3*a[3];
+    if(z>1)z-=2; if(w>1)w-=2; s*=3;
+  }
+  const qx=Math.abs(x)-1,qy=Math.abs(y)-1,qz=Math.abs(z)-1,qw=Math.abs(w)-1;
+  const o=Math.hypot(Math.max(qx,0),Math.max(qy,0),Math.max(qz,0),Math.max(qw,0)),inn=Math.min(Math.max(qx,qy,qz,qw),0);
+  return (o+inn)/s;
+}
+function deB4(x,y,z,w,it){
+  x-=10*Math.round(x/10);y-=10*Math.round(y/10);z-=10*Math.round(z/10);w-=10*Math.round(w/10);
+  let zx=x,zy=y,zz=z,zw=w,dr=1;
+  for(let i=0;i<it;i++){
+    zx=cl(zx)*2-zx;zy=cl(zy)*2-zy;zz=cl(zz)*2-zz;zw=cl(zw)*2-zw;
+    const r2=zx*zx+zy*zy+zz*zz+zw*zw;
+    if(r2<0.25){zx*=4;zy*=4;zz*=4;zw*=4;dr*=4;}else if(r2<1){zx/=r2;zy/=r2;zz/=r2;zw/=r2;dr/=r2;}
+    zx=zx*2.2+x;zy=zy*2.2+y;zz=zz*2.2+z;zw=zw*2.2+w;dr=dr*2.2+1;
+  }
+  return Math.sqrt(zx*zx+zy*zy+zz*zz+zw*zw)/dr;
+}
+const JC=[-0.2,0.6,0.2,0.2];
+function deJ4(x,y,z,w,it){
+  x-=4*Math.round(x/4);y-=4*Math.round(y/4);z-=4*Math.round(z/4);
+  let m=x*x+y*y+z*z+w*w,dz=1;
+  for(let i=0;i<it;i++){
+    dz=2*Math.sqrt(m)*dz;
+    const nx=x*x-y*y-z*z-w*w+JC[0];y=2*x*y+JC[1];z=2*x*z+JC[2];w=2*x*w+JC[3];x=nx;
+    m=x*x+y*y+z*z+w*w;if(m>256)break;
+  }
+  const r=Math.sqrt(m);return 0.5*r*Math.log(r)/dz;
+}
+const K4DE=[deM4,deB4,deJ4];
+function mk4(o){return Object.assign({d4:true,gk:5,fly:true,maxK:2,
+  init(){F4={P:this.start.slice(),M:[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1],s:1};iters=f4iters();},
+  fold(p){f4move(p[0],p[1],p[2],0);p[0]=p[1]=p[2]=0;},
+  de(x,y,z){const q=f4pt(x,y,z);return K4DE[this.k4](q[0],q[1],q[2],q[3],iters)/F4.s;}},o);}
+WORLDS.push(
+  mk4({name:'超立方体スポンジ ／ 4次元のメンガー',k4:0,far:40,yaw:0.29,pitch:-0.19,dT:0.5,iter0:5,capMax:9,g:3,smin:3e-4,
+    start:[0,0.03,1.0,0],wrap4(P){for(let i=0;i<4;i++)P[i]-=2*Math.round(P[i]/2);}}),
+  mk4({name:'4次元の箱 ／ 4次元マンデルボックス',k4:1,far:120,yaw:-0.785,pitch:-0.44,dT:0.6,iter0:10,capMax:20,g:2.2,smin:3e-4,
+    start:[5,5,5,0.25],wrap4(P){for(let i=0;i<4;i++)P[i]-=10*Math.round(P[i]/10);}}),
+  mk4({name:'四元数の森 ／ 4次元ジュリア集合',k4:2,far:40,yaw:-0.69,pitch:-0.41,dT:0.5,iter0:11,capMax:20,g:2,smin:3e-4,
+    start:[2.0,1.4,2.3,0],wrap4(P){for(let i=0;i<3;i++)P[i]-=4*Math.round(P[i]/4);}})
+);
+const CR2=0.9025,CH=0.3;
+const opTileXZ={
+  mar(p){return Math.min(1-Math.abs(p[0]-2*Math.round(p[0]/2)),1-Math.abs(p[2]-2*Math.round(p[2]/2)));},
+  fwd(p){const b=[Math.round(p[0]/2),Math.round(p[2]/2)];p[0]-=2*b[0];p[2]-=2*b[1];return b;},
+  inv(p,G,b){p[0]+=2*b[0];p[2]+=2*b[1];}};
+const opCrater={
+  mar(p){const r=len3(p),R=Math.sqrt(CR2);return Math.min(Math.abs(r-R),r<R?0.03*r:1e9);},
+  fwd(p,G){if(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]<CR2){sphInv(p,G,CR2);return 1;}
+    p[0]*=3;p[2]*=3;p[1]=(p[1]-CH)*3+CH;if(G)gScale(G,3);return 0;},
+  inv(p,G,b){if(b){sphInv(p,G,CR2);return;}
+    p[0]/=3;p[2]/=3;p[1]=(p[1]-CH)/3+CH;if(G)gScale(G,1/3);}};
+function deCrater(X,Y,Z){
+  let [x,y,z]=eP(X,Y,Z);let sc=1;
+  for(let i=0;i<iters;i++){
+    x-=2*Math.round(x/2);z-=2*Math.round(z/2);
+    const r2=x*x+y*y+z*z;
+    if(r2<CR2){const k=CR2/r2;x*=k;y*=k;z*=k;sc*=k;}
+    else{x*=3;z*=3;y=(y-CH)*3+CH;sc*=3;}
+  }
+  return 0.5*(y-CH)/sc*E.invS;
+}
+WORLDS.push({name:'クレーターの谷 ／ 穴の中に穴が続く大地',de:deCrater,gk:6,far:40,fly:true,yaw:0.05,pitch:-0.6,maxK:1,dT:0.5,
+  iter0:9,capMax:16,pmax:6,g:3,sLo:sLoOf(3,9,13),ops:[opTileXZ,opCrater],start:[0.3,1.1,1.4],
+  wrap(){for(const j of [0,2]){const n=2*Math.round(E.p[j]/2);E.p[j]-=n;E.c0[j]-=n;}}});
 let W=WORLDS[0];
-for(const w of WORLDS)if(!w.menger){
+for(const w of WORLDS)if(!w.menger&&!w.d4){
   w.init=function(){eInit(this.start,this.startK||0);};
   w.fold=function(p){eMove(p);p[0]=p[1]=p[2]=0;eNorm();};
 }
@@ -714,7 +929,7 @@ gl.useProgram(prog);
 gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
 gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,3,-1,-1,3]),gl.STATIC_DRAW);
 const aL=gl.getAttribLocation(prog,"a");gl.enableVertexAttribArray(aL);gl.vertexAttribPointer(aL,2,gl.FLOAT,false,0,0);
-const U={};['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uN','uA[0]','uS[0]','uT[0]'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
+const U={};['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uP4','uM4','uS4','uK4','uN','uA[0]','uS[0]','uT[0]'].forEach(n=>U[n]=gl.getUniformLocation(prog,n));
 
 let quality=0.55;
 function resize(){
@@ -782,6 +997,8 @@ function setWorld(i){
   world=i;W=WORLDS[i];kexp=W.startK||0;size=1;W.init();pos=[0,0,0];setLook(W.yaw,W.pitch||0);vy=0;fallT=0;setFly(W.fly);
   for(let k=0;k<WORLDS.length;k++)$('w'+k).setAttribute('aria-pressed',k===i);
   $('wname').textContent=W.name;$('sz').innerHTML=label(kexp);
+  $('ctl4').hidden=!W.d4;
+  if(W.d4)toast('Z/X か「4D −/＋」で4次元目へ移動、C/V で4次元へ回転');
 }
 let auto=true;
 function setAuto(v){auto=v;$('auto').setAttribute('aria-pressed',v);if(v&&!fly)setFly(true);toast(v?'自動サイズ：壁に近づくと縮み、離れると育ちます':'自動サイズを切りました');}
@@ -797,7 +1014,15 @@ function fits(p,r){
 }
 function resize_body(dir){
   vy=0;fallT=0;
-  if(W.menger){
+  if(W.d4){
+    W.fold(pos);pos=[0,0,0];
+    const ns=F4.s*Math.pow(3,dir);
+    if(ns<W.smin*0.99){toast('4次元の世界はここまでしか縮めません');return;}
+    if(ns>Math.pow(3,W.maxK)*1.01){toast('これ以上は大きくなれません');return;}
+    const old=F4.s;F4.s=ns;iters=f4iters();
+    if(dir>0&&!fits(pos,R0)){F4.s=old;iters=f4iters();toast('ここは狭くて大きくなれません');return;}
+    kexp=Math.round(Math.log(F4.s)/Math.log(3));
+  }else if(W.menger){
     W.fold(pos);
     if(dir<0){mShrink();kexp--;}
     else{
@@ -836,6 +1061,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyF')setFly(!fly);
   if(e.code==='KeyG')setAuto(!auto);
   if(e.code==='KeyO')showOpt(panel.hidden);
+  if(e.code==='KeyH')setUI(document.body.classList.contains('noui'));
   if(e.code==='KeyQ')resize_body(-1);
   if(e.code==='KeyE')resize_body(1);
   if(/^Digit[1-9]$/.test(e.code))setWorld(+e.code.slice(5)-1);
@@ -902,10 +1128,19 @@ for(let k=0;k<WORLDS.length;k++)tap('w'+k,()=>setWorld(k));
 tap('smaller',()=>resize_body(-1));tap('bigger',()=>resize_body(1));
 tap('fly',()=>setFly(!fly));
 tap('auto',()=>setAuto(!auto));
+const hold4={};
+for(const id of ['w4m','w4p','r4m','r4p']){const b=$(id);
+  b.addEventListener('pointerdown',e=>{hold4[id]=true;b.setPointerCapture(e.pointerId);});
+  const off=()=>hold4[id]=false;b.addEventListener('pointerup',off);b.addEventListener('pointercancel',off);}
 const jb=$('jump');
 jb.addEventListener('pointerdown',e=>{jumpHeld=true;jb.setPointerCapture(e.pointerId);});
 jb.addEventListener('pointerup',()=>jumpHeld=false);jb.addEventListener('pointercancel',()=>jumpHeld=false);
 
+function setUI(v){
+  document.body.classList.toggle('noui',!v);$('showui').hidden=v;
+  if(!v)showOpt(false);
+}
+tap('hideui',()=>setUI(false));tap('showui',()=>setUI(true));
 const panel=$('panel');
 function showOpt(v){panel.hidden=!v;$('opt').setAttribute('aria-expanded',v);if(v&&locked())document.exitPointerLock();}
 tap('opt',()=>showOpt(panel.hidden));tap('optclose',()=>showOpt(false));
@@ -928,7 +1163,7 @@ syncOpt();
 const touch=matchMedia('(hover:none)').matches;
 $('hint').innerHTML=touch
   ?'左下のスティックで移動、画面をドラッグで見回す。<br>体の大きさは自動で変わります。壁へ向かって進むと、縮みながら奥へ入っていけます。'
-  :'マウスを動かすと見回す（クリックでカーソル固定、Escで解除）<br>WASD 移動 ・ Space ジャンプ/上昇<br>F 飛行 ・ G 自動サイズ ・ O 設定 ・ Q/E 縮む/育つ ・ 1〜9 ワールド<br>壁へ向かって進むと、縮みながら奥へ入っていけます';
+  :'マウスを動かすと見回す（クリックでカーソル固定、Escで解除）<br>WASD 移動 ・ Space ジャンプ/上昇<br>F 飛行 ・ G 自動サイズ ・ O 設定 ・ H UIを隠す ・ Q/E 縮む/育つ ・ 1〜9 ワールド<br>壁へ向かって進むと、縮みながら奥へ入っていけます';
 
 // ---------- physics ----------
 function collide(){
@@ -943,6 +1178,14 @@ function collide(){
   }
 }
 function step(dt){
+  if(W.d4){
+    const mv=((keys.KeyX||hold4.w4p)?1:0)-((keys.KeyZ||hold4.w4m)?1:0);
+    const rt=((keys.KeyV||hold4.r4p)?1:0)-((keys.KeyC||hold4.r4m)?1:0);
+    if(rt){W.fold(pos);pos=[0,0,0];f4rot(camR,rt*0.8*dt);collide();}
+    if(mv){W.fold(pos);pos=[0,0,0];
+      const n=Math.max(1,Math.ceil(0.9*dt/(0.4*R0)));
+      for(let i=0;i<n;i++){f4move(0,0,0,mv*0.9*dt/n);collide();}}
+  }
   if(limitOn())levelView(dt);
   if(OPT.edge&&!locked()&&mIn&&(mEdge[0]||mEdge[1]))turn(mEdge[0]*1.6*dt/OPT.sens,mEdge[1]*1.6*dt/OPT.sens);
   let ix=mx,iz=mz;
@@ -994,7 +1237,8 @@ function frame(now){
   step(dt);
   acc+=raw;frames++;
   if(frames>=24){
-    if(!W.menger){const k=eK(kexp);if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
+    if(W.d4){const k=Math.round(Math.log(F4.s)/Math.log(3));if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
+    else if(!W.menger){const k=eK(kexp);if(k!==kexp){kexp=k;$('sz').innerHTML=label(kexp);}}
     const avg=acc/frames;acc=0;frames=0;
     if(avg>26&&quality>0.25)quality=Math.max(0.25,quality*0.85);
     else if(avg<15&&quality<1)quality=Math.min(1,quality*1.08);
@@ -1008,7 +1252,13 @@ function frame(now){
   gl.uniform1f(U.uScale,size);
   gl.uniform1f(U.uFar,W.far);
   gl.uniform1i(U.uIter,iters);
-  if(!W.menger){
+  if(W.d4){
+    const M=F4.M;
+    gl.uniform4f(U.uP4,F4.P[0],F4.P[1],F4.P[2],F4.P[3]);
+    gl.uniformMatrix4fv(U.uM4,false,[M[0],M[4],M[8],M[12],M[1],M[5],M[9],M[13],M[2],M[6],M[10],M[14],M[3],M[7],M[11],M[15]]);
+    gl.uniform1f(U.uS4,F4.s);gl.uniform1i(U.uK4,W.k4);
+    const wv=document.getElementById('w4v');if(wv)wv.textContent=(F4.P[3]>=0?'+':'')+F4.P[3].toFixed(3);
+  }else if(!W.menger){
     const G=E.G,H=E.G0;
     gl.uniform3f(U.uP,E.p[0],E.p[1],E.p[2]);gl.uniform3f(U.uC,E.c0[0],E.c0[1],E.c0[2]);
     gl.uniformMatrix3fv(U.uG,false,[G[0],G[3],G[6],G[1],G[4],G[7],G[2],G[5],G[8]]);
