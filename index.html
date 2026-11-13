@@ -36,6 +36,7 @@ button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid va
   padding:8px 10px;font-size:13px;font-weight:700;line-height:1;cursor:pointer;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);touch-action:none}
 button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button[aria-pressed="true"]{background:var(--accent);color:#1b1205;border-color:var(--accent)}
+button.bimg{border-color:rgba(240,225,170,.6)}
 button.b4d{border-color:rgba(120,220,255,.55)}
 button.big{width:68px;height:68px;border-radius:50%;font-size:13px;padding:0}
 button.mid{min-width:52px;height:44px}
@@ -92,7 +93,11 @@ body.noui .hud,body.noui #stick,body.noui #hint,body.noui #lockhint,body.noui #t
     <button id="w12" aria-pressed="false" class="b4d">超立方体</button>
     <button id="w13" aria-pressed="false" class="b4d">4D箱</button>
     <button id="w14" aria-pressed="false" class="b4d">四元数</button>
-    <button id="w15" aria-pressed="false">クレーター</button>
+    <button id="w15" aria-pressed="false">丸スポンジ</button>
+    <button id="w16" aria-pressed="false" class="bimg">象牙の回廊</button>
+    <button id="w17" aria-pressed="false" class="bimg">緑の環</button>
+    <button id="w18" aria-pressed="false" class="bimg">光の大広間</button>
+    <button id="w19" aria-pressed="false" class="bimg">黄金の年輪</button>
   </div>
   <div class="stat" id="wname">メンガー回廊</div>
 </div>
@@ -205,6 +210,10 @@ float deMenger(vec3 q){
     if(uRule==1){
       vec3 e=max(1.0-abs(a)-0.3333333,0.0); vec3 q2=e*e;
       c=sqrt(max(q2.x+q2.y+q2.z-max(q2.x,max(q2.y,q2.z)),0.0))/uS[m];
+    }else if(uRule==2){
+      // round sponge: a spherical room where three round tunnels cross
+      vec3 u=1.0-abs(a);
+      c=max(MRS-length(u),MRC-min(length(u.yz),min(length(u.xz),length(u.xy))))/uS[m];
     }else{
       vec3 r=abs(1.0-3.0*abs(a));
       c=(min(max(r.x,r.y),min(max(r.y,r.z),max(r.z,r.x)))-1.0)/(3.0*uS[m]);
@@ -418,7 +427,11 @@ vec3 sky(vec3 rd){
   if(uWorld==12) return mix(vec3(0.92,0.94,0.98),vec3(0.55,0.62,0.78),pow(h,0.8));
   if(uWorld==13) return mix(vec3(0.10,0.02,0.06),vec3(0.01,0.0,0.02),h);
   if(uWorld==14) return mix(vec3(0.02,0.10,0.08),vec3(0.0,0.02,0.03),h);
-  if(uWorld==15) return mix(vec3(0.30,0.22,0.26),vec3(0.16,0.11,0.15),h);
+  if(uWorld==15) return mix(vec3(0.24,0.15,0.21),vec3(0.13,0.08,0.12),h);
+  if(uWorld==16) return mix(vec3(0.46,0.46,0.44),vec3(0.16,0.16,0.17),h);
+  if(uWorld==17) return mix(vec3(0.13,0.16,0.15),vec3(0.05,0.07,0.07),h);
+  if(uWorld==18) return mix(vec3(0.88,0.85,0.84),vec3(0.42,0.38,0.40),pow(h,0.7));
+  if(uWorld==19) return mix(vec3(0.46,0.40,0.30),vec3(0.20,0.17,0.12),h);
   return mix(vec3(0.05,0.05,0.07),vec3(0.0,0.0,0.015),h);
 }
 void main(){
@@ -479,8 +492,17 @@ void main(){
       base=pal(fract(dot(floor(q4*1.5),vec3(0.13,0.21,0.17)))*0.6+sqrt(tr)*0.05,vec3(0.80,0.80,0.84),vec3(0.16,0.14,0.18),vec3(1.0),vec3(0.60,0.66,0.76));
     }else if(uWorld==13){
       base=pal(sqrt(tr)*0.5,vec3(0.62,0.36,0.36),vec3(0.38,0.30,0.30),vec3(1.0,0.8,0.7),vec3(0.0,0.15,0.30));
+    }else if(uWorld>=16&&uWorld<=19){
+      // the four photographed views of the scale-2 Mandelbox: same stone, four palettes
+      float w=smoothstep(0.0,0.55,sqrt(tr));
+      vec3 lo=vec3(0.42,0.42,0.43),hi=vec3(1.0,0.96,0.80);
+      if(uWorld==17){lo=vec3(0.12,0.16,0.15);hi=vec3(0.80,0.84,0.70);}
+      if(uWorld==18){lo=vec3(0.34,0.30,0.31);hi=vec3(0.96,0.92,0.90);}
+      if(uWorld==19){lo=vec3(0.38,0.32,0.20);hi=vec3(1.0,0.90,0.60);}
+      base=mix(lo,hi,w);
     }else if(uWorld==15){
-      base=mix(vec3(0.42,0.28,0.34),vec3(0.95,0.86,0.64),smoothstep(0.35,0.98,tr));
+      // sand-coloured faces; each finer level of holes a little rosier
+      base=mix(vec3(0.95,0.86,0.66),vec3(0.66,0.48,0.52),0.22*mod(tr,4.0));
     }else{
       base=pal(log(1.0+tr)*0.35,vec3(0.40,0.62,0.56),vec3(0.36,0.32,0.36),vec3(1.0,1.0,1.0),vec3(0.20,0.55,0.85));
     }
@@ -491,6 +513,8 @@ void main(){
     vec3 lit=base*(sky(vec3(0.0,1.0,0.0))*0.55*up+vec3(1.0,0.9,0.78)*dif*0.85+vec3(0.9,0.85,0.8)*head*0.55+0.08);
     col=lit*ao;
     if(uWorld==4) col=col*0.75+base*0.22*ao;
+    if(uWorld==15) col=mix(vec3(0.20,0.11,0.17),col,smoothstep(0.15,0.85,ao));
+    if(uWorld>=16&&uWorld<=19) col=mix(vec3(0.06,0.06,0.08),col*1.3,smoothstep(0.0,0.75,ao));
     float f=1.0-exp(-pow(t/uFar*2.3,1.8));
     col=mix(col,sky(vec3(rd.x,0.02,rd.z)),f);
   }
@@ -515,22 +539,27 @@ function mod2(x){return x-2*Math.floor(x*0.5);}
 // Moving shifts every phase, shrinking adds a finer level, growing adds a coarser one,
 // so neither position nor scale ever runs out of precision.
 let lv=[],act=[],mZoom=1,mRule=0,mOff=0;
+const MRS=0.66,MRC=0.40;   // round sponge: room and tunnel radius, in units of half a cell
 const M_FAR=70;
 function mExp(i){return i-(lv.length-5)+mOff;}
-function mCoarse(){const f=lv[0];lv.unshift({a:f.a.map(v=>mRule?(v<1?v/3:(v+4)/3):(v+2)/3),id:f.id-1});}
+function mCoarse(){const f=lv[0];lv.unshift({a:f.a.map(v=>mRule===1?(v<1?v/3:(v+4)/3):(v+2)/3),id:f.id-1});}
 function mInit(rule){
-  mRule=rule||0;mOff=mRule?-2:0;
-  let a=mRule?[0.5,0.45,0.6]:[0,1.75,1.0];lv=[];mZoom=1;
+  mRule=rule||0;mOff=mRule===1?-2:0;
+  let a=mRule===1?[0.5,0.45,0.6]:(mRule===2?[0.1,0.06,1.0]:[0,1.75,1.0]);lv=[];mZoom=1;
   for(let e=0;e<=4;e++){lv.push({a:a.slice(),id:e});a=a.map(v=>mod2(3*v));}
   while(lv.length<16)mCoarse();
   mActive();
-  if(mRule)for(let i=0;i<80;i++){   // drift to just outside the lattice
+  if(mRule===1)for(let i=0;i<80;i++){   // drift to just outside the lattice
     const d=deMenger(0,0,0);if(Math.abs(d-0.7)<0.03)break;
     const e=1e-4,g=[deMenger(e,0,0)-deMenger(-e,0,0),deMenger(0,e,0)-deMenger(0,-e,0),deMenger(0,0,e)-deMenger(0,0,-e)],l=Math.hypot(g[0],g[1],g[2])||1,m=-(d-0.7)*0.8/l;
     mFold([g[0]*m,g[1]*m,g[2]*m]);mActive();
   }
 }
 function bandU(a){return a.map(v=>Math.min(v,2-v)).sort((x,y)=>x-y);}
+function roundDist(a){
+  const u=a.map(v=>Math.min(v,2-v));
+  return Math.max(0,Math.min(Math.hypot(u[0],u[1],u[2])-MRS,Math.hypot(u[1],u[2])-MRC,Math.hypot(u[0],u[2])-MRC,Math.hypot(u[0],u[1])-MRC));
+}
 function holeDist(a){
   const e=a.map(v=>Math.max(Math.min(v,2-v)-1/3,0)).sort((x,y)=>x-y);
   return Math.hypot(e[0],e[1]);
@@ -542,7 +571,7 @@ function mActive(){
   const cand=[];
   for(let i=n-7;i>=Math.max(0,n-32);i--){
     const sc=Math.pow(3,mExp(i))*mZoom;
-    const d=mRule?(1/3-bandU(lv[i].a)[1])/sc:holeDist(lv[i].a)/sc;
+    const d=mRule===1?(1/3-bandU(lv[i].a)[1])/sc:(mRule===2?roundDist(lv[i].a):holeDist(lv[i].a))/sc;
     if(d<M_FAR)cand.push([d,i]);
   }
   cand.sort((x,y)=>x[0]-y[0]);
@@ -562,7 +591,10 @@ function deMenger(x,y,z){
     const L=act[m],a=L.a,s=L.s;
     const ax=Math.abs(mod2(a[0]+x*s)-1),ay=Math.abs(mod2(a[1]+y*s)-1),az=Math.abs(mod2(a[2]+z*s)-1);
     let c;
-    if(mRule){
+    if(mRule===2){
+      const ux=1-ax,uy=1-ay,uz=1-az;
+      c=Math.max(MRS-Math.hypot(ux,uy,uz),MRC-Math.min(Math.hypot(uy,uz),Math.hypot(ux,uz),Math.hypot(ux,uy)))/s;
+    }else if(mRule){
       const ex=Math.max(1-ax-1/3,0),ey=Math.max(1-ay-1/3,0),ez=Math.max(1-az-1/3,0),qx=ex*ex,qy=ey*ey,qz=ez*ez;
       c=Math.sqrt(Math.max(qx+qy+qz-Math.max(qx,qy,qz),0))/s;
     }else{
@@ -950,9 +982,19 @@ const opSlab={
   fwd(p,G){const b=Math.round(p[1]/CPY);p[1]-=CPY*b;const s=p[1]<0?1:0;
     if(s){p[1]=-p[1];if(G)gFlipRow(G,1);}p[1]+=CH-CT;return [b,s];},
   inv(p,G,br){p[1]-=CH-CT;if(br[1]){p[1]=-p[1];if(G)gFlipRow(G,1);}p[1]+=CPY*br[0];}};
-WORLDS.push({name:'クレーターの層 ／ 上下左右に果てなく続く穴の中の穴',de:deCrater,gk:6,far:30,fly:true,yaw:0.15,pitch:-0.55,maxK:1,dT:0.35,
-  iter0:9,capMax:16,pmax:60,g:3,sLo:sLoOf(3,9,13),ops0:[opSlab],ops:[opTileXZ,opCrater],start:[0.3,1.5,0.4],
-  wrap:wrapAll([2,CPY,2])});
+WORLDS.push({name:'まるいスポンジ ／ 丸い穴の奥に丸い穴',de:deMenger,far:M_FAR,fly:true,yaw:0.3,pitch:-0.15,menger:true,gk:0,rule:2,dT:0.8,
+  init(){mInit(2);},
+  fold(p){mFold(p);p[0]=p[1]=p[2]=0;mActive();}});
+WORLDS.push(
+  {name:'象牙の回廊 ／ 四角い窓が入れ子に続く建築',de:deBox,gk:1,S:2,tile:13,far:80,fly:true,yaw:-1.5437,pitch:-0.6353,startK:-1,maxK:1,dT:0.45,
+   iter0:14,capMax:24,pmax:14,g:2,sLo:sLoOf(2,14,19),ops:BOXOPS,wrap:wrapAll([13,13,13]),start:[1.9921704,-3.6839290,-5.7001795]},
+  {name:'緑の環 ／ 重なり続ける円弧の帯',de:deBox,gk:1,S:2,tile:13,far:80,fly:true,yaw:0.6531,pitch:0.4793,startK:-2,maxK:1,dT:0.45,
+   iter0:16,capMax:24,pmax:14,g:2,sLo:sLoOf(2,16,21),ops:BOXOPS,wrap:wrapAll([13,13,13]),start:[5.8049332,-3.6681334,-0.8350915]},
+  {name:'光の大広間 ／ 垂れ下がる柱と窓の街',de:deBox,gk:1,S:2,tile:13,far:80,fly:true,yaw:-0.3247,pitch:-0.4161,startK:-1,maxK:1,dT:0.45,
+   iter0:14,capMax:24,pmax:14,g:2,sLo:sLoOf(2,14,19),ops:BOXOPS,wrap:wrapAll([13,13,13]),start:[0.0464390,-4.0762037,2.3935046]},
+  {name:'黄金の年輪 ／ 果てなく巻く円弧',de:deBox,gk:1,S:2,tile:13,far:80,fly:true,yaw:1.3211,pitch:-0.4393,startK:-1,maxK:1,dT:0.45,
+   iter0:14,capMax:24,pmax:14,g:2,sLo:sLoOf(2,14,19),ops:BOXOPS,wrap:wrapAll([13,13,13]),start:[4.2779631,-3.3368753,2.0983786]}
+);
 let W=WORLDS[0];
 for(const w of WORLDS)if(!w.menger&&!w.d4){
   w.init=function(){eInit(this.start,this.startK||0);};
@@ -969,7 +1011,7 @@ else{
 // ---------- GL ----------
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
-const fsSrc=$('fs').textContent.replace(/APOS/g,APOS.toFixed(4));
+const fsSrc=$('fs').textContent.replace(/APOS/g,APOS.toFixed(4)).replace(/MRS/g,MRS.toFixed(4)).replace(/MRC/g,MRC.toFixed(4));
 const UN=['uRes','uPos','uRot','uWorld','uScale','uFar','uIter','uP','uG','uC','uG0','uInvS','uTile','uKind','uRule','uBS','uTileP','uKR','uKS','uKO','uDr0','uCr','uR[0]','uH[0]','uL[0]','uSg[0]','uMs[0]','uAf','uMc','uP4','uM4','uS4','uK4','uN','uA[0]','uS[0]','uT[0]'];
 const vsh=sh(gl.VERTEX_SHADER,'attribute vec2 a;void main(){gl_Position=vec4(a,0.,1.);}');
 const progs={};let U={},progOK=true;
